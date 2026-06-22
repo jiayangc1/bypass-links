@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
 import jwt from "jsonwebtoken";
+import { UpstreamRateLimitError, UpstreamTimeoutError, UpstreamUnavailableError } from "../src/errors.js";
 import { createApp } from "../src/server.js";
 
 const accessSecret = "test-access-secret";
-const refreshSecret = "test-refresh-secret";
 const testUser = {
   id: "ident!test",
   email: "user@example.com",
@@ -104,6 +104,42 @@ test("session API returns null user without authentication", async () => {
   }
 });
 
+test("rejects private-network bypass URLs before calling the client", async () => {
+  let called = false;
+  const { baseUrl, close } = await startServer({
+    bypassClient: { bypass: async () => { called = true; } }
+  });
+  try {
+    const response = await authenticatedBypass(baseUrl, "http://127.0.0.1/admin");
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { ok: false, error: "invalid_url" });
+    assert.equal(called, false);
+  } finally {
+    await close();
+  }
+});
+
+for (const [error, status, code] of [
+  [new UpstreamRateLimitError(7), 429, "rate_limited"],
+  [new UpstreamUnavailableError(), 502, "upstream_unavailable"],
+  [new UpstreamTimeoutError(), 504, "upstream_timeout"]
+]) {
+  test(`maps ${code} failures to HTTP ${status}`, async () => {
+    const { baseUrl, close } = await startServer({
+      bypassClient: { bypass: async () => { throw error; } }
+    });
+    try {
+      const response = await authenticatedBypass(baseUrl, "https://linkvertise.com/example");
+      assert.equal(response.status, status);
+      const payload = await response.json();
+      assert.equal(payload.error, code);
+      if (code === "rate_limited") assert.equal(payload.retryAfter, 7);
+    } finally {
+      await close();
+    }
+  });
+}
+
 async function startServer(options = {}) {
   const app = createApp({
     telegramWebhookSecret: "secret",
@@ -115,7 +151,6 @@ async function startServer(options = {}) {
     },
     authConfig: {
       jwtAccessSecret: accessSecret,
-      jwtRefreshSecret: refreshSecret,
       isProduction: false
     },
     serveClient: false
@@ -134,5 +169,16 @@ async function startServer(options = {}) {
 function signAccessToken(user) {
   return jwt.sign({ sub: user.id, user }, accessSecret, {
     expiresIn: "15m"
+  });
+}
+
+function authenticatedBypass(baseUrl, url) {
+  return fetch(`${baseUrl}/api/bypass`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `access_token=${signAccessToken(testUser)}`
+    },
+    body: JSON.stringify({ url })
   });
 }

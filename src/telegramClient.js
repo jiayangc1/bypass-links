@@ -1,9 +1,12 @@
 import { createLogger, serializeError } from "./logger.js";
+import { requestWithPolicy } from "./outboundRequest.js";
 
 export function createTelegramClient({
   botToken,
   fetchImpl = fetch,
-  logger = createLogger("telegram")
+  logger = createLogger("telegram"),
+  maxRetries = 2,
+  timeoutMs = 8_000
 }) {
   const apiBase = `https://api.telegram.org/bot${botToken}`;
 
@@ -18,12 +21,16 @@ export function createTelegramClient({
     });
 
     try {
-      const response = await fetchImpl(`${apiBase}/${method}`, {
+      const response = await requestWithPolicy(fetchImpl, `${apiBase}/${method}`, {
         method: "POST",
         headers: {
           "content-type": "application/json"
         },
         body: JSON.stringify(body)
+      }, {
+        maxRetries: method === "setWebhook" ? maxRetries : 0,
+        retryUnsafe: method === "setWebhook",
+        timeoutMs
       });
 
       const payload = await response.json().catch(() => ({}));

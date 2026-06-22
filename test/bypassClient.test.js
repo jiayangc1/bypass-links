@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createBypassClient } from "../src/bypassClient.js";
+import { createBypassClient as createBypassClientBase } from "../src/bypassClient.js";
 
 test("follows chained bypass results up to max hops", async () => {
   const requestedUrls = [];
@@ -108,6 +108,70 @@ test("returns the last successful result when a chained request fails", async ()
   );
   assert.equal(logs.some((entry) => entry.level === "error"), false);
 });
+
+test("enforces an overall deadline across bypass hops", async () => {
+  const client = createBypassClient({
+    apiKey: "key",
+    authHeader: "Authorization",
+    maxRetries: 0,
+    operationTimeoutMs: 5,
+    timeoutMs: 100,
+    fetchImpl: (_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+    })
+  });
+
+  await assert.rejects(client.bypass("https://example.com/start"), { name: "UpstreamTimeoutError" });
+});
+
+test("classifies unsupported upstream responses", async () => {
+  const client = createBypassClient({
+    apiKey: "key",
+    authHeader: "Authorization",
+    maxRetries: 0,
+    fetchImpl: async () => ({ ok: false, status: 422, headers: new globalThis.Headers() })
+  });
+
+  await assert.rejects(client.bypass("https://example.com/start"), { name: "UnsupportedLinkError" });
+});
+
+test("preserves required URL fragments", async () => {
+  let calls = 0;
+  const url = "https://mega.nz/file/abc#required-key";
+  const client = createBypassClient({
+    apiKey: "key",
+    authHeader: "Authorization",
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse({ result: url });
+    }
+  });
+
+  assert.equal(await client.bypass(url), url);
+  assert.equal(calls, 1);
+});
+
+test("stops after one hop when raw URLs are canonically equivalent", async () => {
+  let calls = 0;
+  const client = createBypassClient({
+    apiKey: "key",
+    authHeader: "Authorization",
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse({ result: "https://example.com" });
+    }
+  });
+
+  assert.equal(await client.bypass("https://example.com/"), "https://example.com/");
+  assert.equal(calls, 1);
+});
+
+function createBypassClient(options) {
+  return createBypassClientBase({
+    lookupImpl: async () => [{ address: "93.184.216.34", family: 4 }],
+    ...options
+  });
+}
 
 function jsonResponse(payload) {
   return {

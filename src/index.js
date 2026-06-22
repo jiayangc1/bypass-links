@@ -1,15 +1,18 @@
 import "dotenv/config";
 import { createBypassClient } from "./bypassClient.js";
 import { readConfig, validateConfig } from "./config.js";
+import { createDatabasePool } from "./database.js";
 import { createLogger } from "./logger.js";
 import { RateLimitQueue } from "./rateLimitQueue.js";
 import { createApp } from "./server.js";
+import { PostgresRefreshSessionStore } from "./sessionStore.js";
 import { createTelegramClient } from "./telegramClient.js";
 
 async function main() {
   const logger = createLogger("startup");
   const config = readConfig();
   validateConfig(config);
+  const databasePool = createDatabasePool(config.databaseUrl);
 
   logger.info("config_loaded", {
     port: config.port,
@@ -24,14 +27,18 @@ async function main() {
 
   const telegramClient = createTelegramClient({
     botToken: config.telegramBotToken,
-    logger: createLogger("telegram")
+    logger: createLogger("telegram"),
+    maxRetries: config.outboundMaxRetries,
+    timeoutMs: config.outboundTimeoutMs
   });
   const bypassClient = createBypassClient({
     apiKey: config.bypassApiKey,
     authHeader: config.bypassApiAuthHeader,
+    maxRetries: config.outboundMaxRetries,
     maxHops: config.bypassMaxHops,
     logger: createLogger("bypass"),
-    queue: new RateLimitQueue({ limit: 25, intervalMs: 10_000, concurrency: 2 })
+    queue: new RateLimitQueue({ limit: 25, intervalMs: 10_000, concurrency: 2 }),
+    timeoutMs: config.outboundTimeoutMs
   });
 
   const webhookUrl = new URL("/telegram/webhook", config.webhookBaseUrl).toString();
@@ -50,6 +57,7 @@ async function main() {
     telegramWebhookSecret: config.telegramWebhookSecret,
     telegramClient,
     bypassClient,
+    sessionStore: new PostgresRefreshSessionStore(databasePool),
     discordErrorWebhookUrl: config.discordErrorWebhookUrl,
     logger: createLogger("server"),
     authConfig: {
@@ -57,7 +65,8 @@ async function main() {
       hackClubClientSecret: config.hackClubClientSecret,
       hackClubRedirectUri: config.hackClubRedirectUri,
       jwtAccessSecret: config.jwtAccessSecret,
-      jwtRefreshSecret: config.jwtRefreshSecret,
+      outboundMaxRetries: config.outboundMaxRetries,
+      outboundTimeoutMs: config.outboundTimeoutMs,
       isProduction: process.env.NODE_ENV === "production"
     }
   });

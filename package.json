@@ -9,6 +9,7 @@
     "dev": "vite",
     "dev:server": "node --watch src/index.js",
     "build": "vite build",
+    "db:migrate": "node scripts/migrate.js",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test",
     "lint": "eslint ."
@@ -23,8 +24,10 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.0.0",
+    "ipaddr.js": "^2.4.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
+    "pg": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "^7.16.0",
@@ -38,6 +41,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "pg-mem": "^3.0.14",
     "vite": "^7.3.3"
   }
 }

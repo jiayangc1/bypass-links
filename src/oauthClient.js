@@ -1,10 +1,15 @@
+import { UpstreamUnavailableError } from "./errors.js";
+import { requestWithPolicy } from "./outboundRequest.js";
+
 const HACK_CLUB_AUTH_BASE_URL = "https://auth.hackclub.com";
 
 export function createHackClubOAuthClient({
   clientId,
   clientSecret,
   redirectUri,
-  fetchImpl = fetch
+  fetchImpl = fetch,
+  maxRetries = 2,
+  timeoutMs = 8_000
 }) {
   function buildAuthorizationUrl(state) {
     const url = new URL("/oauth/authorize", HACK_CLUB_AUTH_BASE_URL);
@@ -17,7 +22,7 @@ export function createHackClubOAuthClient({
   }
 
   async function exchangeCodeForToken(code) {
-    const response = await fetchImpl(new URL("/oauth/token", HACK_CLUB_AUTH_BASE_URL), {
+    const response = await requestWithPolicy(fetchImpl, new URL("/oauth/token", HACK_CLUB_AUTH_BASE_URL), {
       method: "POST",
       headers: {
         "content-type": "application/json"
@@ -29,24 +34,24 @@ export function createHackClubOAuthClient({
         code,
         grant_type: "authorization_code"
       })
-    });
+    }, { maxRetries: 0, timeoutMs });
 
     if (!response.ok) {
-      throw new Error(`Hack Club token exchange failed with HTTP ${response.status}`);
+      throw new UpstreamUnavailableError(`Hack Club token exchange failed with HTTP ${response.status}`);
     }
 
     return response.json();
   }
 
   async function fetchMe(accessToken) {
-    const response = await fetchImpl(new URL("/api/v1/me", HACK_CLUB_AUTH_BASE_URL), {
+    const response = await requestWithPolicy(fetchImpl, new URL("/api/v1/me", HACK_CLUB_AUTH_BASE_URL), {
       headers: {
         authorization: `Bearer ${accessToken}`
       }
-    });
+    }, { maxRetries: Math.min(maxRetries, 1), timeoutMs });
 
     if (!response.ok) {
-      throw new Error(`Hack Club profile request failed with HTTP ${response.status}`);
+      throw new UpstreamUnavailableError(`Hack Club profile request failed with HTTP ${response.status}`);
     }
 
     return response.json();

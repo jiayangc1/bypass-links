@@ -1,4 +1,5 @@
 import { createLogger, summarizeUrl } from "./logger.js";
+import { requestWithPolicy } from "./outboundRequest.js";
 import { extractMessageText, extractUrls } from "./urlExtractor.js";
 
 export function formatTelegramReply(result) {
@@ -83,7 +84,7 @@ export async function processTelegramUpdate(update, {
   return { processed: true, sent };
 }
 
-export async function notifyDiscord(webhookUrl, error, fetchImpl = fetch) {
+export async function notifyDiscord(webhookUrl, error, fetchImpl = fetch, { timeoutMs = 5_000 } = {}) {
   if (!webhookUrl) {
     return;
   }
@@ -91,13 +92,13 @@ export async function notifyDiscord(webhookUrl, error, fetchImpl = fetch) {
   const stack = error?.stack || String(error);
   const message = `# Error Detected in Automation Link Bypasser\nError: ${error.message || error}\n\`\`\`${stack}\`\`\``;
 
-  await fetchImpl(webhookUrl, {
+  await requestWithPolicy(fetchImpl, webhookUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json"
     },
     body: JSON.stringify({ message })
-  }).catch((notifyError) => {
+  }, { maxRetries: 0, timeoutMs }).catch((notifyError) => {
     console.error("Failed to send Discord error notification", notifyError);
   });
 }

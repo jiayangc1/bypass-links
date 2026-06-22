@@ -8,7 +8,8 @@ import { createAuthService, normalizeHackClubUser } from "./auth.js";
 import { notifyDiscord, processTelegramUpdate } from "./bot.js";
 import { createLogger, serializeError } from "./logger.js";
 import { createHackClubOAuthClient } from "./oauthClient.js";
-import { isUrlLike } from "./urlExtractor.js";
+import { PublicHttpError } from "./errors.js";
+import { parsePublicHttpUrl } from "./urlValidator.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CLIENT_DIST = path.resolve(__dirname, "../dist/client");
@@ -21,6 +22,7 @@ export function createApp({
   fetchImpl = fetch,
   authConfig = {},
   oauthClient,
+  sessionStore,
   clientDistPath = DEFAULT_CLIENT_DIST,
   serveClient = true,
   logger = createLogger("server")
@@ -28,20 +30,26 @@ export function createApp({
   const app = express();
   const auth = createAuthService({
     accessSecret: authConfig.jwtAccessSecret || "test-access-secret",
-    refreshSecret: authConfig.jwtRefreshSecret || "test-refresh-secret",
-    isProduction: authConfig.isProduction
+    isProduction: authConfig.isProduction,
+    sessionStore
   });
   const hackClubOAuth = oauthClient || createHackClubOAuthClient({
     clientId: authConfig.hackClubClientId || "test-client-id",
     clientSecret: authConfig.hackClubClientSecret || "test-client-secret",
     redirectUri: authConfig.hackClubRedirectUri || "http://localhost:3000/oauth/callback",
-    fetchImpl
+    fetchImpl,
+    maxRetries: authConfig.outboundMaxRetries,
+    timeoutMs: authConfig.outboundTimeoutMs
   });
   const bypassLimiter = rateLimit({
     windowMs: 60 * 1000,
     limit: 30,
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    handler: (_request, response, _next, options) => {
+      const retryAfter = Math.ceil(options.windowMs / 1_000);
+      response.status(429).json({ ok: false, error: "rate_limited", retryAfter });
+    }
   });
 
   app.use(helmet());
@@ -51,13 +59,13 @@ export function createApp({
     const startedAt = Date.now();
     logger.info("request_started", {
       method: request.method,
-      path: request.originalUrl,
+      path: request.path,
       ip: request.ip
     });
     response.on("finish", () => {
       logger.info("request_finished", {
         method: request.method,
-        path: request.originalUrl,
+        path: request.path,
         statusCode: response.statusCode,
         durationMs: Date.now() - startedAt
       });
@@ -90,7 +98,7 @@ export function createApp({
         return;
       }
 
-      auth.setSessionCookies(response, user);
+      await auth.startSession(response, user);
       response.redirect("/");
     } catch (error) {
       next(error);
@@ -107,48 +115,50 @@ export function createApp({
     response.json({ ok: true, user });
   });
 
-  app.get("/api/session", (request, response) => {
+  app.get("/api/session", async (request, response, next) => {
     const accessUser = auth.readAccessUser(request);
     if (accessUser) {
       response.json({ ok: true, user: accessUser });
       return;
     }
 
-    const refreshUser = auth.readRefreshUser(request);
-    if (refreshUser) {
-      auth.setSessionCookies(response, refreshUser);
+    try {
+      const refreshUser = await auth.refreshSession(request, response);
       response.json({ ok: true, user: refreshUser });
-      return;
+    } catch (error) {
+      next(error);
     }
-
-    response.json({ ok: true, user: null });
   });
 
-  app.post("/auth/refresh", (request, response) => {
-    const user = auth.readRefreshUser(request);
-    if (!user) {
-      response.status(401).json({ ok: false, error: "unauthorized" });
-      return;
-    }
+  app.post("/auth/refresh", async (request, response, next) => {
+    try {
+      const user = await auth.refreshSession(request, response);
+      if (!user) {
+        response.status(401).json({ ok: false, error: "unauthorized" });
+        return;
+      }
 
-    auth.setSessionCookies(response, user);
-    response.json({ ok: true, user });
+      response.json({ ok: true, user });
+    } catch (error) {
+      next(error);
+    }
   });
 
-  app.post("/auth/logout", (_request, response) => {
-    auth.clearSessionCookies(response);
-    response.json({ ok: true });
+  app.post("/auth/logout", async (request, response, next) => {
+    try {
+      await auth.logout(request, response);
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/bypass", bypassLimiter, auth.requireAuth, async (request, response, next) => {
     try {
       const { refresh = false, url } = request.body || {};
-      if (!isUrlLike(url)) {
-        response.status(400).json({ ok: false, error: "invalid_url" });
-        return;
-      }
+      const validatedUrl = parsePublicHttpUrl(url).toString();
 
-      const result = await bypassClient.bypass(url, { refresh: refresh === true });
+      const result = await bypassClient.bypass(validatedUrl, { refresh: refresh === true });
       response.json({ ok: true, result });
     } catch (error) {
       next(error);
@@ -205,9 +215,32 @@ export function createApp({
     });
   }
 
-  app.use((error, _request, response, _next) => {
-    logger.error("unhandled_request_error", { error: serializeError(error) });
-    response.status(500).json({ ok: false, error: "internal_server_error" });
+  app.use((error, request, response, _next) => {
+    const publicError = error instanceof PublicHttpError
+      ? error
+      : new PublicHttpError("An unexpected error occurred.");
+    const logMethod = publicError.status >= 500 ? "error" : "warn";
+    logger[logMethod]("request_error", {
+      code: publicError.code,
+      error: serializeError(error),
+      path: request.path,
+      statusCode: publicError.status
+    });
+
+    if (publicError.retryAfter !== null) {
+      response.set("retry-after", String(publicError.retryAfter));
+    }
+
+    if (request.path === "/oauth/callback") {
+      response.status(publicError.status).send(publicError.message);
+      return;
+    }
+
+    const payload = { ok: false, error: publicError.code };
+    if (publicError.retryAfter !== null) {
+      payload.retryAfter = publicError.retryAfter;
+    }
+    response.status(publicError.status).json(payload);
   });
 
   return app;

@@ -45,7 +45,21 @@ test("accepts webhook requests with the configured secret", async () => {
   }
 });
 
-async function startServer() {
+test("request logging excludes OAuth query parameters", async () => {
+  const logs = [];
+  const { baseUrl, close } = await startServer({ logger: createTestLogger(logs) });
+  try {
+    await fetch(`${baseUrl}/oauth/callback?code=super-secret-code&state=secret-state`, { redirect: "manual" });
+    const serialized = JSON.stringify(logs);
+    assert.equal(serialized.includes("super-secret-code"), false);
+    assert.equal(serialized.includes("secret-state"), false);
+    assert.equal(logs.find((entry) => entry.event === "request_started")?.path, "/oauth/callback");
+  } finally {
+    await close();
+  }
+});
+
+async function startServer(options = {}) {
   const sentMessages = [];
   const app = createApp({
     telegramWebhookSecret: "secret",
@@ -56,7 +70,8 @@ async function startServer() {
       sendMessage: async (message) => {
         sentMessages.push(message);
       }
-    }
+    },
+    logger: options.logger
   });
 
   const server = createServer(app);
@@ -67,6 +82,15 @@ async function startServer() {
     baseUrl: `http://${address.address}:${address.port}`,
     sentMessages,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
+  };
+}
+
+function createTestLogger(logs) {
+  const write = (level, event, details = {}) => logs.push({ level, event, ...details });
+  return {
+    info: (event, details) => write("info", event, details),
+    warn: (event, details) => write("warn", event, details),
+    error: (event, details) => write("error", event, details)
   };
 }
 

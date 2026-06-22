@@ -1,43 +1,63 @@
 import { isUrlLike } from "./urlExtractor.js";
+import {
+  UnsupportedLinkError,
+  UpstreamRateLimitError,
+  UpstreamUnavailableError,
+  getRetryAfterSeconds
+} from "./errors.js";
 import { createLogger, serializeError, summarizeUrl } from "./logger.js";
+import { requestWithPolicy } from "./outboundRequest.js";
+import { parsePublicHttpUrl, resolvePublicHttpUrl } from "./urlValidator.js";
 
 const BYPASS_API_BASE_URL = "https://api.bypass.vip/premium/";
+export const DEFAULT_BYPASS_OPERATION_TIMEOUT_MS = 20_000;
 
 export function createBypassClient({
   apiKey,
   authHeader,
+  maxRetries = 2,
   maxHops = 5,
   fetchImpl = fetch,
+  lookupImpl,
   logger = createLogger("bypass"),
-  queue = { schedule: (task) => task() }
+  dnsTimeoutMs = 2_000,
+  operationTimeoutMs = DEFAULT_BYPASS_OPERATION_TIMEOUT_MS,
+  queue = { schedule: (task) => task() },
+  timeoutMs = 8_000
 }) {
-  async function bypassOnce(url, { failureLogLevel = "error", refresh = false } = {}) {
+  async function bypassOnce(url, { failureLogLevel = "error", refresh = false, signal } = {}) {
+    const validatedUrl = (await resolvePublicHttpUrl(url, { lookupImpl, timeoutMs: dnsTimeoutMs })).toString();
     const requestUrl = new URL(refresh ? "refresh" : "bypass", BYPASS_API_BASE_URL);
-    requestUrl.searchParams.set("url", url);
+    requestUrl.searchParams.set("url", validatedUrl);
     const startedAt = Date.now();
 
     logger.info("bypass_api_request_started", {
       mode: refresh ? "refresh" : "bypass",
-      url: summarizeUrl(url),
+      url: summarizeUrl(validatedUrl),
       authHeader
     });
 
-    const response = await queue.schedule(() =>
-      fetchImpl(requestUrl, {
-        method: "GET",
-        headers: {
-          [authHeader]: apiKey
-        }
-      })
-    );
+    const response = await queue.schedule(() => requestWithPolicy(fetchImpl, requestUrl, {
+      method: "GET",
+      headers: {
+        [authHeader]: apiKey
+      },
+      signal
+    }, { maxRetries, timeoutMs }));
 
     if (!response.ok) {
       logger[failureLogLevel]("bypass_api_request_failed", {
         statusCode: response.status,
         durationMs: Date.now() - startedAt,
-        url: summarizeUrl(url)
+        url: summarizeUrl(validatedUrl)
       });
-      throw new Error(`bypass.vip request failed with HTTP ${response.status}`);
+      if ([400, 404, 422].includes(response.status)) {
+        throw new UnsupportedLinkError();
+      }
+      if (response.status === 429) {
+        throw new UpstreamRateLimitError(getRetryAfterSeconds(response));
+      }
+      throw new UpstreamUnavailableError(`bypass.vip request failed with HTTP ${response.status}`);
     }
 
     const payload = await response.json();
@@ -64,6 +84,7 @@ export function createBypassClient({
   async function bypass(url, options = {}) {
     let currentUrl = url;
     let lastResult = "";
+    const operationSignal = options.signal || globalThis.AbortSignal.timeout(operationTimeoutMs);
 
     for (let hop = 0; hop < maxHops; hop += 1) {
       try {
@@ -74,20 +95,30 @@ export function createBypassClient({
         });
         const result = await bypassOnce(currentUrl, {
           ...options,
-          failureLogLevel: lastResult ? "warn" : "error"
+          failureLogLevel: lastResult ? "warn" : "error",
+          signal: operationSignal
         });
-        lastResult = result;
-
-        if (!isUrlLike(result) || result === currentUrl) {
+        if (!isUrlLike(result)) {
           logger.info("bypass_finished", {
             hop: hop + 1,
-            reason: result === currentUrl ? "same_url" : "non_url_result",
+            reason: "non_url_result",
             resultLength: result.length
           });
           return result;
         }
 
-        currentUrl = result;
+        const nextUrl = parsePublicHttpUrl(result).toString();
+        if (nextUrl === currentUrl) {
+          logger.info("bypass_finished", {
+            hop: hop + 1,
+            reason: "same_url",
+            resultLength: result.length
+          });
+          return nextUrl;
+        }
+
+        currentUrl = nextUrl;
+        lastResult = nextUrl;
       } catch (error) {
         if (lastResult) {
           logger.warn("bypass_returning_last_successful_result", {
@@ -106,7 +137,7 @@ export function createBypassClient({
       }
     }
 
-    return lastResult;
+    return (await resolvePublicHttpUrl(lastResult, { lookupImpl, timeoutMs: dnsTimeoutMs })).toString();
   }
 
   return {
