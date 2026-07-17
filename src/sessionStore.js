@@ -1,12 +1,15 @@
 import crypto from "node:crypto";
 
 export class PostgresRefreshSessionStore {
-  constructor(pool, { replayGraceMs = 5_000 } = {}) {
+  constructor(pool, { prepare = null, replayGraceMs = 5_000 } = {}) {
     this.pool = pool;
+    this.prepare = prepare;
+    this.preparation = null;
     this.replayGraceMs = replayGraceMs;
   }
 
   async createSession(session) {
+    await this.ensureReady();
     await this.pool.query(
       `INSERT INTO auth_refresh_sessions
         (id, family_id, token_hash, user_data, expires_at, family_expires_at)
@@ -23,6 +26,7 @@ export class PostgresRefreshSessionStore {
   }
 
   async rotateSession({ id, tokenHash, replacement }) {
+    await this.ensureReady();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -98,6 +102,7 @@ export class PostgresRefreshSessionStore {
   }
 
   async revokeSession({ id, tokenHash }) {
+    await this.ensureReady();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -123,6 +128,23 @@ export class PostgresRefreshSessionStore {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async ensureReady() {
+    if (!this.prepare) {
+      return;
+    }
+
+    if (!this.preparation) {
+      this.preparation = Promise.resolve().then(this.prepare);
+    }
+
+    try {
+      await this.preparation;
+    } catch (error) {
+      this.preparation = null;
+      throw error;
     }
   }
 }

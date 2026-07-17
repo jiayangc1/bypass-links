@@ -3,6 +3,7 @@ import { createBypassClient } from "./bypassClient.js";
 import { readConfig, validateConfig } from "./config.js";
 import { createDatabasePool } from "./database.js";
 import { createLogger } from "./logger.js";
+import { runDatabaseMigrations } from "./migrations.js";
 import { RateLimitQueue } from "./rateLimitQueue.js";
 import { createApp } from "./server.js";
 import { PostgresRefreshSessionStore } from "./sessionStore.js";
@@ -13,6 +14,9 @@ async function main() {
   const config = readConfig();
   validateConfig(config);
   const databasePool = createDatabasePool(config.databaseUrl);
+  const sessionStore = new PostgresRefreshSessionStore(databasePool, {
+    prepare: () => runDatabaseMigrations(databasePool)
+  });
 
   logger.info("config_loaded", {
     port: config.port,
@@ -57,7 +61,7 @@ async function main() {
     telegramWebhookSecret: config.telegramWebhookSecret,
     telegramClient,
     bypassClient,
-    sessionStore: new PostgresRefreshSessionStore(databasePool),
+    sessionStore,
     discordErrorWebhookUrl: config.discordErrorWebhookUrl,
     logger: createLogger("server"),
     authConfig: {

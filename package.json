@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "vite",
     "dev:server": "node --watch src/index.js",
-    "build": "npm run db:migrate && vite build",
+    "build": "vite build",
     "db:migrate": "node scripts/migrate.js",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test",

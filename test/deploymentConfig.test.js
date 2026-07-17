@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
 
-test("production builds apply database migrations before compiling the client", async () => {
+test("production builds stay database-independent and initialize migrations at runtime", async () => {
   const packageJson = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const apiEntry = await fs.readFile(new URL("../api/index.js", import.meta.url), "utf8");
 
-  assert.match(packageJson.scripts.build, /^npm run db:migrate && /);
+  assert.equal(packageJson.scripts.build, "vite build");
+  assert.match(apiEntry, /prepare: \(\) => runDatabaseMigrations\(databasePool\)/);
 });

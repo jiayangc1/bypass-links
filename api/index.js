@@ -1,6 +1,7 @@
 import { createBypassClient } from "../src/bypassClient.js";
 import { readConfig, validateConfig } from "../src/config.js";
 import { createDatabasePool } from "../src/database.js";
+import { runDatabaseMigrations } from "../src/migrations.js";
 import { RateLimitQueue } from "../src/rateLimitQueue.js";
 import { createApp } from "../src/server.js";
 import { PostgresRefreshSessionStore } from "../src/sessionStore.js";
@@ -9,6 +10,9 @@ import { createTelegramClient } from "../src/telegramClient.js";
 const config = readConfig();
 validateConfig(config);
 const databasePool = createDatabasePool(config.databaseUrl);
+const sessionStore = new PostgresRefreshSessionStore(databasePool, {
+  prepare: () => runDatabaseMigrations(databasePool)
+});
 
 const telegramClient = createTelegramClient({
   botToken: config.telegramBotToken,
@@ -29,7 +33,7 @@ export default createApp({
   telegramWebhookSecret: config.telegramWebhookSecret,
   telegramClient,
   bypassClient,
-  sessionStore: new PostgresRefreshSessionStore(databasePool),
+  sessionStore,
   discordErrorWebhookUrl: config.discordErrorWebhookUrl,
   authConfig: {
     hackClubClientId: config.hackClubClientId,

@@ -76,3 +76,31 @@ test("PostgreSQL migration and session store rotate and revoke token families", 
     await pool.end();
   }
 });
+
+test("PostgreSQL session store prepares its schema once before use", async () => {
+  let preparations = 0;
+  const inserts = [];
+  const pool = {
+    query: async (sql) => {
+      inserts.push(sql);
+    }
+  };
+  const store = new PostgresRefreshSessionStore(pool, {
+    prepare: async () => {
+      preparations += 1;
+    }
+  });
+  const session = {
+    id: "00000000-0000-4000-8000-000000000001",
+    familyId: "00000000-0000-4000-8000-000000000001",
+    tokenHash: "a".repeat(64),
+    user: { id: "ident!test", email: "user@example.com" },
+    expiresAt: new Date(Date.now() + 60_000),
+    familyExpiresAt: new Date(Date.now() + 60_000)
+  };
+
+  await Promise.all([store.createSession(session), store.createSession(session)]);
+
+  assert.equal(preparations, 1);
+  assert.equal(inserts.length, 2);
+});
