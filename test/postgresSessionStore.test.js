@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
 import test from "node:test";
 import { newDb } from "pg-mem";
+import { DATABASE_MIGRATIONS } from "../src/migrations.js";
 import { PostgresRefreshSessionStore } from "../src/sessionStore.js";
 
 test("PostgreSQL migration and session store rotate and revoke token families", async () => {
   const database = newDb();
-  const migrationsDirectory = new URL("../migrations/", import.meta.url);
-  const migrationFiles = (await fs.readdir(migrationsDirectory)).filter((file) => file.endsWith(".sql")).sort();
-  for (const file of migrationFiles) {
-    database.public.none(await fs.readFile(new URL(file, migrationsDirectory), "utf8"));
+  for (const migration of DATABASE_MIGRATIONS) {
+    database.public.none(migration.sql);
   }
   const adapter = database.adapters.createPg();
   const pool = new adapter.Pool();
