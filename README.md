@@ -2,6 +2,8 @@
 
 Same-origin Express and React app for bypassing supported links, gated by Hack Club Auth. The existing Telegram webhook bot still extracts links from messages, sends them through the bypass.vip Premium API, and replies with the final result.
 
+See [BYPASS_VIP_API.md](BYPASS_VIP_API.md) for a simple guide to calling the bypass.vip API directly.
+
 ## Setup
 
 ```sh
