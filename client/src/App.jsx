@@ -19,9 +19,18 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation } from "react-router";
+import { Link, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router";
 import { bypassLink, getCurrentUser, logout } from "./api.js";
 import { describeBypassError, getDestination } from "./resultUtils.js";
+
+const countdownFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+const policyDateFormatter = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric"
+});
+const policyLastUpdated = new Date("2026-06-21T00:00:00Z");
 
 const supportedSites = [
   "Linkvertise", "bstlar.com", "Cutty", "shrinkme.click", "Lootlinks", "AdFoc.us",
@@ -33,12 +42,12 @@ const supportedSites = [
 ];
 
 const faqItems = [
-  ["Which ad-link sites are supported?", "The service supports Linkvertise and the other providers listed above. Support can change when providers update their flows."],
-  ["Are bypasses restricted?", "Authenticated users can submit links subject to fair-use and upstream rate limits."],
-  ["How does it work?", "Paste a supported public link. The server validates it, sends it to the bypass provider, and returns the final destination or text result."],
-  ["Do you support paste results?", "Yes. When a provider returns text instead of a destination URL, it is displayed as a copyable result."],
-  ["What if I get an error?", "The result panel distinguishes unsupported links, rate limits, service outages, timeouts, and expired sessions so you know what to do next."],
-  ["Do you use advertising cookies?", "No. The app uses essential first-party authentication cookies and local browser storage for theme and notice preferences."]
+  ["Which Ad-Link Sites Are Supported?", "The service supports Linkvertise and the other providers listed above. Support can change when providers update their flows."],
+  ["Are Bypasses Restricted?", "Authenticated users can submit links subject to fair-use and upstream rate limits."],
+  ["How Does It Work?", "Paste a supported public link. The server validates it, sends it to the bypass provider, and returns the final destination or text result."],
+  ["Do You Support Paste Results?", "Yes. When a provider returns text instead of a destination URL, it is displayed as a copyable result."],
+  ["What If I Get an Error?", "The result panel distinguishes unsupported links, rate limits, service outages, timeouts, and expired sessions so you know what to do next."],
+  ["Do You Use Advertising Cookies?", "No. The app uses essential first-party authentication cookies and local browser storage for theme and notice preferences."]
 ];
 
 function signIn() {
@@ -76,12 +85,20 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    let animationFrame;
     if (location.hash) {
-      window.requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ behavior: "smooth" }));
+      animationFrame = window.requestAnimationFrame(() => {
+        const target = document.getElementById(location.hash.slice(1));
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        target?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+      });
     } else {
       window.scrollTo({ top: 0 });
     }
-  }, [location]);
+    return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [location.hash, location.pathname]);
 
   async function handleLogout() {
     try {
@@ -97,6 +114,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to Main Content</a>
       <Header
         authLoading={authLoading}
         displayName={displayName}
@@ -138,8 +156,8 @@ export default function App() {
 function Header({ authLoading, displayName, menuButtonRef, menuOpen, onLogout, onMenuToggle, onThemeToggle, theme, user }) {
   return (
     <header className="top-header">
-      <Link className="brand" to="/" aria-label="bypass.city home">
-        <img className="brand-logo" src="/images/logo-long.svg" alt="bypass.city" />
+      <Link className="brand" to="/" aria-label="bypass.city home" translate="no">
+        <img className="brand-logo" src="/images/logo-long.svg" alt="bypass.city" fetchPriority="high" height="50" width="207" />
       </Link>
       <div className="header-actions">
         {user ? (
@@ -221,11 +239,11 @@ function SideNav({ displayName, menuButtonRef, onClose, onLogout, user }) {
         {user ? <div className="mobile-account"><UserRound size={18} /><span>{displayName}</span></div> : null}
         <nav>
           <Link className="nav-card" to="/" onClick={onClose}><Home size={18} /><span><strong>Home</strong><small>Bypass a link</small></span></Link>
-          <Link className="nav-card" to="/#supported" onClick={onClose}><LinkIcon size={18} /><span><strong>Supported websites</strong><small>Browse supported providers</small></span></Link>
+          <Link className="nav-card" to="/#supported" onClick={onClose}><LinkIcon size={18} /><span><strong>Supported Websites</strong><small>Browse supported providers</small></span></Link>
           <Link className="nav-card" to="/privacy" onClick={onClose}><ShieldCheck size={18} /><span><strong>Privacy</strong><small>How data is handled</small></span></Link>
           <Link className="nav-card" to="/terms" onClick={onClose}><FileText size={18} /><span><strong>Terms</strong><small>Rules for using the service</small></span></Link>
         </nav>
-        {user ? <button className="nav-logout" onClick={onLogout} type="button"><LogOut size={18} />Log out</button> : <button className="nav-login" onClick={signIn} type="button"><UserRound size={18} />Sign in with Hack Club</button>}
+        {user ? <button className="nav-logout" onClick={onLogout} type="button"><LogOut size={18} />Log Out</button> : <button className="nav-login" onClick={signIn} type="button"><UserRound size={18} />Sign In with Hack Club</button>}
       </aside>
     </div>
   );
@@ -235,6 +253,11 @@ function HomePage({ authLoading, onAuthExpired, user }) {
   const [url, setUrl] = useState("");
   const [autoRedirect, setAutoRedirect] = useState(false);
   const [status, setStatus] = useState({ type: "idle", message: "", result: "" });
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (status.type === "error") inputRef.current?.focus();
+  }, [status.message, status.type]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -266,37 +289,51 @@ function HomePage({ authLoading, onAuthExpired, user }) {
   }
 
   return (
-    <main className="page-main">
+    <main className="page-main" id="main-content">
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
         <p className="eyebrow">Fast, clear, and account-protected</p>
-        <h1 id="hero-title">Bypass <span>supported links</span></h1>
+        <h1 id="hero-title">Bypass <span>Supported Links</span></h1>
         <p className="hero-copy">Paste a public ad-link and get its destination without the unnecessary steps.</p>
         <form className="bypass-form" onSubmit={handleSubmit}>
-          <label htmlFor="bypass-url">Link to bypass</label>
-          <input id="bypass-url" autoComplete="url" onChange={(event) => setUrl(event.target.value)} placeholder="https://linkvertise.com/…" required type="url" value={url} />
+          <label htmlFor="bypass-url">Link to Bypass</label>
+          <input
+            ref={inputRef}
+            id="bypass-url"
+            aria-describedby={status.type === "error" ? "bypass-url-error" : undefined}
+            aria-invalid={status.type === "error"}
+            autoComplete="off"
+            inputMode="url"
+            name="url"
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="https://linkvertise.com/…"
+            required
+            type="url"
+            value={url}
+          />
           <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
-            {status.type === "loading" ? "Working…" : user ? "Bypass link" : "Sign in with Hack Club"}
+            {status.type === "loading" ? "Working…" : user ? "Bypass Link" : "Sign In with Hack Club"}
           </button>
+          {status.type === "error" ? <p className="field-error" id="bypass-url-error" role="alert">{status.message}</p> : null}
         </form>
+        {status.type === "loading" || status.type === "success" ? <Result key={`${status.type}-${status.result}`} autoRedirect={autoRedirect} status={status} /> : null}
         <div className="hero-controls">
-          <button className="text-action" onClick={handleClipboard} type="button"><Clipboard size={16} />Paste from clipboard</button>
+          <button className="text-action" onClick={handleClipboard} type="button"><Clipboard size={16} />Paste from Clipboard</button>
           <label className="toggle-row">
-            <input checked={autoRedirect} onChange={(event) => setAutoRedirect(event.target.checked)} type="checkbox" />
+            <input checked={autoRedirect} name="auto-redirect" onChange={(event) => setAutoRedirect(event.target.checked)} type="checkbox" />
             <span className="toggle-track" aria-hidden="true" />
             Auto-redirect
           </label>
         </div>
         <button className="example-card" onClick={() => setUrl("https://linkvertise.com/48193/example")} type="button">
-          <Sparkles size={18} aria-hidden="true" /><span><strong>Try an example</strong><small>Fill the form with a sample Linkvertise URL.</small></span>
+          <Sparkles size={18} aria-hidden="true" /><span><strong>Try an Example</strong><small>Fill the form with a sample Linkvertise URL.</small></span>
         </button>
-        {status.type !== "idle" ? <Result key={`${status.type}-${status.result}`} autoRedirect={autoRedirect} status={status} /> : null}
       </section>
 
       <section className="feature-grid" id="supported" aria-label="Service features">
         <SupportedCard />
-        <InfoCard icon={<HeartPulse size={40} />} title="Clear status" text="Timeouts, rate limits, unsupported links, and expired sessions are reported separately." />
-        <InfoCard icon={<BadgeCheck size={40} />} title="Safer by default" text="Links are validated before processing, and private or local network destinations are rejected." />
+        <InfoCard icon={<HeartPulse size={40} />} title="Clear Status" text="Timeouts, rate limits, unsupported links, and expired sessions are reported separately." />
+        <InfoCard icon={<BadgeCheck size={40} />} title="Safer by Default" text="Links are validated before processing, and private or local network destinations are rejected." />
       </section>
       <Faq />
     </main>
@@ -305,6 +342,7 @@ function HomePage({ authLoading, onAuthExpired, user }) {
 
 function Result({ autoRedirect, status }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
   const [cancelled, setCancelled] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const destination = getDestination(status.result);
@@ -323,26 +361,29 @@ function Result({ autoRedirect, status }) {
     try {
       await navigator.clipboard.writeText(status.result);
       setCopied(true);
+      setCopyError("");
     } catch {
       setCopied(false);
+      setCopyError(destination ? "Could not copy the result. Use the Open Destination link instead." : "Could not copy the result. Select the text above and copy it manually.");
     }
   }
 
   const role = status.type === "error" ? "alert" : "status";
   return (
     <div className={`result-card ${status.type}`} role={role} aria-live={status.type === "error" ? "assertive" : "polite"}>
-      <div className="result-heading"><strong>{status.type === "success" ? "Result ready" : status.type === "error" ? "Could not bypass link" : "Working"}</strong>{status.type === "loading" ? <span className="spinner" aria-hidden="true" /> : null}</div>
+      <div className="result-heading"><strong>{status.type === "success" ? "Result Ready" : status.type === "error" ? "Could Not Bypass Link" : "Working"}</strong>{status.type === "loading" ? <span className="spinner" aria-hidden="true" /> : null}</div>
       <span>{status.message}</span>
       {status.type === "success" ? (
         <>
-          {destination ? <div className="destination"><small>Destination</small><strong>{destination.hostname}</strong><span>{destination.pathname}</span></div> : <pre className="text-result">{status.result}</pre>}
+          {destination ? <div className="destination" translate="no"><small>Destination</small><strong>{destination.hostname}</strong><span>{destination.pathname}</span></div> : <pre className="text-result" translate="no">{status.result}</pre>}
           <div className="result-actions">
-            <button onClick={copyResult} type="button"><Copy size={16} />{copied ? "Copied" : "Copy result"}</button>
-            {destination ? <a href={status.result} rel="noreferrer"><ExternalLink size={16} />Open destination</a> : null}
+            <button onClick={copyResult} type="button"><Copy size={16} />{copied ? "Copied" : "Copy Result"}</button>
+            {destination ? <a href={status.result} rel="noreferrer"><ExternalLink size={16} />Open Destination</a> : null}
           </div>
+          {copyError ? <span className="copy-feedback">{copyError}</span> : null}
           {autoRedirect && destination ? (
             <div className="redirect-notice">
-              {cancelled ? <span>Auto-redirect cancelled.</span> : <span>Opening in {countdown} seconds…</span>}
+              {cancelled ? <span>Auto-redirect cancelled.</span> : <span>Opening in <span className="countdown-number">{countdownFormatter.format(countdown)}</span> seconds…</span>}
               {!cancelled ? <button onClick={() => setCancelled(true)} type="button">Cancel</button> : null}
             </div>
           ) : null}
@@ -353,7 +394,7 @@ function Result({ autoRedirect, status }) {
 }
 
 function SupportedCard() {
-  return <article className="feature-card supported-card"><div className="card-heading"><LinkIcon size={40} /><h2>Supported websites</h2></div><ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={19} /><span>{site}</span></li>)}</ul></article>;
+  return <article className="feature-card supported-card"><div className="card-heading"><LinkIcon size={40} /><h2>Supported Websites</h2></div><ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={19} /><span translate="no">{site}</span></li>)}</ul></article>;
 }
 
 function InfoCard({ icon, title, text }) {
@@ -361,14 +402,24 @@ function InfoCard({ icon, title, text }) {
 }
 
 function Faq() {
-  const [openIndex, setOpenIndex] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const faqParam = searchParams.get("faq");
+  const parsedIndex = Number.parseInt(faqParam, 10);
+  const openIndex = faqParam === null ? 0 : faqParam === "none" ? -1 : Number.isInteger(parsedIndex) && parsedIndex >= 0 && parsedIndex < faqItems.length ? parsedIndex : -1;
+
+  function toggleFaq(index) {
+    const nextParams = new window.URLSearchParams(searchParams);
+    nextParams.set("faq", openIndex === index ? "none" : String(index));
+    setSearchParams(nextParams, { preventScrollReset: true, replace: true });
+  }
+
   return (
     <section className="faq-section" aria-labelledby="faq-heading">
-      <h2 id="faq-heading">Frequently asked questions</h2>
+      <h2 id="faq-heading">Frequently Asked Questions</h2>
       <div className="faq-list">{faqItems.map(([question, answer], index) => {
         const open = openIndex === index;
         const answerId = `faq-answer-${index}`;
-        return <div className="faq-item" key={question}><button aria-controls={answerId} aria-expanded={open} onClick={() => setOpenIndex(open ? -1 : index)} type="button"><span>{question}</span>{open ? <ChevronUp size={17} /> : <ChevronDown size={17} />}</button>{open ? <div className="faq-answer" id={answerId}><p>{answer}</p></div> : null}</div>;
+        return <div className="faq-item" key={question}><button aria-controls={answerId} aria-expanded={open} onClick={() => toggleFaq(index)} type="button"><span>{question}</span>{open ? <ChevronUp size={17} /> : <ChevronDown size={17} />}</button>{open ? <div className="faq-answer" id={answerId}><p>{answer}</p></div> : null}</div>;
       })}</div>
     </section>
   );
@@ -377,22 +428,22 @@ function Faq() {
 function PolicyPage({ type }) {
   const privacy = type === "privacy";
   return (
-    <main className="policy-page">
-      <p className="eyebrow">Last updated June 21, 2026</p>
-      <h1>{privacy ? "Privacy policy" : "Terms of service"}</h1>
+    <main className="policy-page" id="main-content">
+      <p className="eyebrow">Last updated <time dateTime="2026-06-21">{policyDateFormatter.format(policyLastUpdated)}</time></p>
+      <h1>{privacy ? "Privacy Policy" : "Terms of Service"}</h1>
       <p className="policy-lead">{privacy ? "This page explains the limited data used to operate bypass-links." : "These terms describe the acceptable use of bypass-links."}</p>
       {privacy ? <PrivacyContent /> : <TermsContent />}
-      <Link className="back-link" to="/"><Home size={17} />Back to the bypasser</Link>
+      <Link className="back-link" to="/"><Home size={17} />Back to the Bypasser</Link>
     </main>
   );
 }
 
 function PrivacyContent() {
-  return <div className="policy-sections"><section><h2>Data we use</h2><p>Hack Club supplies your account identifier, name, and email during sign-in. Submitted URLs are processed to provide the requested result.</p></section><section><h2>Storage</h2><p>Essential first-party cookies maintain your session. Local storage remembers theme and notice preferences. Refresh sessions expire after 30 days and can be revoked when you log out.</p></section><section><h2>Service providers</h2><p>Hack Club provides authentication and bypass.vip processes submitted links. Telegram and Discord are used only for their configured bot and operational notification features.</p></section><section><h2>Operational logs</h2><p>Logs contain request paths, timing, status, and sanitized URL metadata. OAuth codes, query strings, message text, credentials, and token values are not intentionally logged.</p></section></div>;
+  return <div className="policy-sections"><section><h2>Data You Provide</h2><p>Hack Club supplies your account identifier, name, and email during sign-in. Submitted URLs are processed to provide the requested result.</p></section><section><h2>Storage</h2><p>Essential first-party cookies maintain your session. Local storage remembers theme and notice preferences. Refresh sessions expire after 30 days and can be revoked when you log out.</p></section><section><h2>Service Providers</h2><p>Hack Club provides authentication and bypass.vip processes submitted links. Telegram and Discord are used only for their configured bot and operational notification features.</p></section><section><h2>Operational Logs</h2><p>Logs contain request paths, timing, status, and sanitized URL metadata. OAuth codes, query strings, message text, credentials, and token values are not intentionally logged.</p></section></div>;
 }
 
 function TermsContent() {
-  return <div className="policy-sections"><section><h2>Acceptable use</h2><p>Use the service only for links you are legally permitted to access. Do not use it to attack systems, evade access controls, distribute malware, or interfere with other users.</p></section><section><h2>Availability</h2><p>The service is provided as-is. Supported providers and results may change, and requests are subject to fair-use and upstream limits.</p></section><section><h2>Accounts</h2><p>You are responsible for activity performed through your Hack Club session. Log out on shared devices and report suspected account misuse through the project owner.</p></section><section><h2>Enforcement</h2><p>Access may be limited or revoked when necessary to protect the service, its providers, or other users.</p></section></div>;
+  return <div className="policy-sections"><section><h2>Acceptable Use</h2><p>Use the service only for links you are legally permitted to access. Do not use it to attack systems, evade access controls, distribute malware, or interfere with other users.</p></section><section><h2>Availability</h2><p>The service is provided as-is. Supported providers and results may change, and requests are subject to fair-use and upstream limits.</p></section><section><h2>Accounts</h2><p>You are responsible for activity performed through your Hack Club session. Log out on shared devices and report suspected account misuse through the project owner.</p></section><section><h2>Enforcement</h2><p>Access may be limited or revoked when necessary to protect the service, its providers, or other users.</p></section></div>;
 }
 
 function StorageNotice() {
@@ -402,7 +453,7 @@ function StorageNotice() {
     localStorage.setItem("storage-notice-dismissed", "yes");
     setVisible(false);
   }
-  return <aside className="storage-notice" aria-label="Storage notice"><p>We use essential first-party cookies for sign-in and local storage for preferences. <Link to="/privacy">Privacy details</Link></p><button onClick={dismiss} type="button">Dismiss</button></aside>;
+  return <aside className="storage-notice" aria-label="Storage notice"><p>Essential first-party cookies support your sign-in, and local storage remembers your preferences. <Link to="/privacy">Privacy Details</Link></p><button onClick={dismiss} type="button">Dismiss</button></aside>;
 }
 
 function initialTheme() {
