@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   Clipboard,
@@ -22,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router";
 import { bypassLink, getCurrentUser, logout } from "./api.js";
 import { describeBypassError, getDestination } from "./resultUtils.js";
+import { isEditableTarget, shouldFocusBypassInput } from "./keyboardFocus.js";
 
 const countdownFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const policyDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -45,8 +47,6 @@ const supportedSites = [
   "Leakutopia", "LeaksLinks", "Goldpaster", "Pasteso", "LinkDirect", "n0paste", "PasteFlash",
   "Pasteva", "Leaked.tools", "Telegraph", "Vaultlinks"
 ];
-
-const rotatingSites = supportedSites.slice(0, 19);
 
 const faqItems = [
   ["What Ad-Link sites are supported ?", "We support Linkvertise and every provider listed in the Supported Websites card. Support can change when providers update their flows."],
@@ -317,6 +317,30 @@ function HomePage({ authLoading, onAuthExpired, user }) {
     if (status.type === "error") inputRef.current?.focus();
   }, [status.message, status.type]);
 
+  useEffect(() => {
+    function handleGlobalKeyDown(event) {
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (shouldFocusBypassInput(event)) inputRef.current?.focus();
+    }
+
+    function handleGlobalPaste(event) {
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (isEditableTarget(event.target)) return;
+      const pastedText = event.clipboardData?.getData("text")?.trim();
+      if (!pastedText) return;
+      event.preventDefault();
+      setUrl(pastedText);
+      inputRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    document.addEventListener("paste", handleGlobalPaste);
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKeyDown);
+      document.removeEventListener("paste", handleGlobalPaste);
+    };
+  }, []);
+
   async function handleSubmit(event) {
     event.preventDefault();
     if (!user) {
@@ -350,9 +374,12 @@ function HomePage({ authLoading, onAuthExpired, user }) {
     <main className="page-main" id="main-content">
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
-        <h1 id="hero-title">Bypass <RotatingSite /></h1>
+        <p className="hero-kicker"><span aria-hidden="true" />Link routing, minus the wait</p>
+        <h1 id="hero-title">Skip the shortlink.<br /><span>Get where you’re going.</span></h1>
+        <p className="hero-copy">Paste a supported link and we’ll resolve the destination for you.</p>
         <form className="bypass-form" onSubmit={handleSubmit}>
           <div className="bypass-input-shell">
+            <LinkIcon aria-hidden="true" size={20} />
             <label htmlFor="bypass-url">Link to Bypass</label>
             <input
               ref={inputRef}
@@ -363,14 +390,14 @@ function HomePage({ authLoading, onAuthExpired, user }) {
               inputMode="url"
               name="url"
               onChange={(event) => setUrl(event.target.value)}
-              placeholder="enter a link to get started"
+              placeholder="Paste or start typing a link"
               required
               type="url"
               value={url}
             />
           </div>
           <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
-            {status.type === "loading" ? "Working…" : "Bypass Link !"}
+            {status.type === "loading" ? "Resolving…" : <>Bypass link <ArrowRight aria-hidden="true" size={18} /></>}
           </button>
           {status.type === "error" ? <p className="field-error" id="bypass-url-error" role="alert">{status.message}</p> : null}
         </form>
@@ -384,45 +411,24 @@ function HomePage({ authLoading, onAuthExpired, user }) {
           </label>
         </div>
         <button className="example-card" onClick={() => setUrl("https://linkvertise.com/48193/example")} type="button">
-          <Sparkles size={16} aria-hidden="true" /><span><strong>Try an example link!</strong><small>We can bypass links most other bypasses can't. Try the Example!</small></span>
+          <Sparkles size={16} aria-hidden="true" /><span><strong>Not ready with a link?</strong><small>Load an example to see how it works.</small></span><ArrowRight size={15} aria-hidden="true" />
         </button>
       </section>
 
-      <section className="feature-grid" id="supported" aria-label="Service features">
+      <section className="feature-section" id="supported" aria-labelledby="supported-heading">
+        <div className="section-heading">
+          <p>Coverage</p>
+          <h2 id="supported-heading">One input. Dozens of providers.</h2>
+          <span>From ad links to paste services, supported destinations resolve through the same simple flow.</span>
+        </div>
         <SupportedCard />
-        <InfoCard icon={<HeartPulse size={40} />} title="Instant Response" text="bypass.city is a fast and responsive service that will get you the link you need in no time! The bypass is instant and the link is ready to be used." />
-        <InfoCard icon={<BadgeCheck size={40} />} title="Quick and Easy" text="bypass.city is a simple and easy to use service that will bypass supported link shorteners in no time!" />
+        <div className="service-notes" aria-label="Service features">
+          <InfoCard icon={<HeartPulse size={24} />} title="Fast by default" text="Links are resolved immediately and the final destination is ready to open or copy." />
+          <InfoCard icon={<BadgeCheck size={24} />} title="Clear results" text="You’ll always see whether a link resolved, needs attention, or is not supported." />
+        </div>
       </section>
       <Faq />
     </main>
-  );
-}
-
-function RotatingSite() {
-  const [siteIndex, setSiteIndex] = useState(0);
-  const [exiting, setExiting] = useState(false);
-  const swapTimeoutRef = useRef(null);
-
-  useEffect(() => {
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return undefined;
-    const interval = window.setInterval(() => {
-      setExiting(true);
-      swapTimeoutRef.current = window.setTimeout(() => {
-        setSiteIndex((current) => (current + 1) % rotatingSites.length);
-        setExiting(false);
-      }, 220);
-    }, 2_600);
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(swapTimeoutRef.current);
-    };
-  }, []);
-
-  return (
-    <span className="rotating-site-wrap">
-      <span className={`rotating-site${exiting ? " is-exiting" : ""}`} key={rotatingSites[siteIndex]} translate="no">{rotatingSites[siteIndex]}</span>
-    </span>
   );
 }
 
@@ -483,8 +489,8 @@ function SupportedCard() {
   return (
     <article className="feature-card supported-card">
       <div className="card-heading">
-        <LinkIcon size={36} />
-        <h2>Supported Websites <ExternalLink size={13} aria-hidden="true" /></h2>
+        <div><LinkIcon size={22} /><h3>Supported websites</h3></div>
+        <span>{supportedSites.length} providers</span>
       </div>
       <ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={17} /><span translate="no">{site}</span></li>)}</ul>
     </article>
@@ -492,7 +498,7 @@ function SupportedCard() {
 }
 
 function InfoCard({ icon, title, text }) {
-  return <article className="feature-card info-card"><div className="info-icon">{icon}</div><h2>{title}</h2><p>{text}</p></article>;
+  return <article className="feature-card info-card"><div className="info-icon">{icon}</div><div><h3>{title}</h3><p>{text}</p></div></article>;
 }
 
 function Faq() {
