@@ -58,6 +58,20 @@ function signInWithAuthometry() {
   window.location.assign("/auth/authometry");
 }
 
+function AuthometryButton({ className = "", ...props }) {
+  return (
+    <button className={`authometry-button ${className}`.trim()} {...props}>
+      <img
+        alt=""
+        height="24"
+        src="https://authometry.ch3n.cc/brand/authometry-icon-192.png"
+        width="24"
+      />
+      <span>Continue with Authometry</span>
+    </button>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -251,7 +265,7 @@ function SideNav({ displayName, menuButtonRef, onClose, onLogout, user }) {
           <button className="nav-logout" onClick={onLogout} type="button"><LogOut size={18} />Log Out</button>
         ) : (
           <div className="nav-login-options">
-            <button className="nav-login" onClick={signInWithAuthometry} type="button"><ShieldCheck size={18} />Continue with Authometry</button>
+            <AuthometryButton className="authometry-button-nav" onClick={signInWithAuthometry} type="button" />
             <button className="nav-login nav-login-secondary" onClick={signInWithHackClub} type="button"><UserRound size={18} />Continue with Hack Club</button>
           </div>
         )}
@@ -322,9 +336,17 @@ function HomePage({ authLoading, onAuthExpired, user }) {
             type="url"
             value={url}
           />
-          <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
-            {status.type === "loading" ? "Working…" : user ? "Bypass Link" : "Continue with Authometry"}
-          </button>
+          {user ? (
+            <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
+              {status.type === "loading" ? "Working…" : "Bypass Link"}
+            </button>
+          ) : (
+            <AuthometryButton
+              className="authometry-button-primary"
+              disabled={authLoading || status.type === "loading"}
+              type="submit"
+            />
+          )}
           {status.type === "error" ? <p className="field-error" id="bypass-url-error" role="alert">{status.message}</p> : null}
         </form>
         {!user && !authLoading ? (

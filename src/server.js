@@ -64,7 +64,13 @@ export function createApp({
     }
   });
 
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        imgSrc: ["'self'", "data:", "https://authometry.ch3n.cc"]
+      }
+    }
+  }));
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
   app.use((request, response, next) => {
