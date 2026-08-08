@@ -2,7 +2,6 @@ import {
   BadgeCheck,
   ArrowRight,
   ChevronDown,
-  ChevronUp,
   Clipboard,
   Copy,
   ExternalLink,
@@ -519,7 +518,17 @@ function Faq() {
       <div className="faq-list">{faqItems.map(([question, answer], index) => {
         const open = openIndex === index;
         const answerId = `faq-answer-${index}`;
-        return <div className="faq-item" key={question}><button aria-controls={answerId} aria-expanded={open} onClick={() => toggleFaq(index)} type="button"><span>{question}</span>{open ? <ChevronUp size={17} /> : <ChevronDown size={17} />}</button>{open ? <div className="faq-answer" id={answerId}><p>{answer}</p></div> : null}</div>;
+        return (
+          <div className={`faq-item${open ? " is-open" : ""}`} key={question}>
+            <button aria-controls={answerId} aria-expanded={open} onClick={() => toggleFaq(index)} type="button">
+              <span>{question}</span>
+              <ChevronDown aria-hidden="true" className="faq-chevron" size={17} />
+            </button>
+            <div aria-hidden={!open} className="faq-answer" id={answerId}>
+              <div><p>{answer}</p></div>
+            </div>
+          </div>
+        );
       })}</div>
     </section>
   );

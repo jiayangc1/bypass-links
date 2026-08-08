@@ -16,6 +16,10 @@
   --danger: #ff8787;
   --warning: #ffd166;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-fast: 160ms;
+  --motion-medium: 280ms;
   --header-content-height: 64px;
   --header-height: calc(var(--header-content-height) + env(safe-area-inset-top));
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -414,11 +418,19 @@ h3 { text-wrap: balance; }
 .faq-section { max-width: 760px; margin: 0 auto; padding: 0 20px 110px; }
 .faq-section h2 { margin: 0 0 26px; color: var(--text); font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.03em; text-align: center; }
 .faq-list { overflow: hidden; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-soft); }
+.faq-item { transition: background-color var(--motion-medium) ease, box-shadow var(--motion-medium) ease; }
 .faq-item + .faq-item { border-top: 1px solid var(--border); }
-.faq-item button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; gap: 16px; padding: 12px 15px; border: 0; color: var(--text); background: transparent; font-size: 13px; font-weight: 650; text-align: left; cursor: pointer; }
-.faq-item button:hover { color: var(--accent); background: var(--accent-soft); }
-.faq-answer { padding: 2px 13px 14px; color: var(--muted); font-size: 12px; line-height: 1.65; }
-.faq-answer p { margin: 0; }
+.faq-item.is-open { background: color-mix(in srgb, var(--accent) 5%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.faq-item button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; gap: 16px; padding: 12px 15px; border: 0; color: var(--text); background: transparent; font-size: 13px; font-weight: 650; text-align: left; cursor: pointer; transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, padding var(--motion-medium) var(--ease-out); }
+.faq-item button:hover { padding-left: 19px; color: var(--accent); background: var(--accent-soft); }
+.faq-item button:active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.faq-chevron { flex: 0 0 auto; transition: color var(--motion-fast) ease, transform 380ms var(--ease-spring); }
+.faq-item.is-open .faq-chevron { color: var(--accent); transform: rotate(180deg); }
+.faq-answer { display: grid; grid-template-rows: 0fr; visibility: hidden; color: var(--muted); font-size: 12px; line-height: 1.65; opacity: 0; transition: grid-template-rows 360ms var(--ease-out), opacity 200ms ease, visibility 0s linear 360ms; }
+.faq-answer > div { min-height: 0; overflow: hidden; }
+.faq-answer p { margin: 0; padding: 0 15px 15px; transform: translateY(-7px); transition: transform 360ms var(--ease-out); }
+.faq-item.is-open .faq-answer { grid-template-rows: 1fr; visibility: visible; opacity: 1; transition: grid-template-rows 420ms var(--ease-out), opacity 260ms 60ms ease, visibility 0s; }
+.faq-item.is-open .faq-answer p { transform: translateY(0); }
 
 .policy-page { max-width: 800px; min-height: 100vh; margin: 0 auto; padding: 145px 24px 100px; }
 .policy-page h1 { margin: 0; font-size: clamp(38px, 7vw, 58px); letter-spacing: -0.045em; }
@@ -436,6 +448,113 @@ h3 { text-wrap: balance; }
 .storage-notice button { min-height: 27px; margin-top: 8px; padding: 0 13px; border: 0; border-radius: 5px; color: #79bff6; background: color-mix(in srgb, var(--accent) 18%, var(--bg-elevated)); font-size: 10px; font-weight: 800; cursor: pointer; }
 .storage-notice a:hover { text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .storage-notice button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Interaction motion: quick feedback for controls, softer lift for surfaces. */
+.skip-link { transition: transform var(--motion-medium) var(--ease-out); }
+.brand { transition: transform var(--motion-fast) var(--ease-out); }
+.brand-logo { transition: filter var(--motion-fast) ease, opacity var(--motion-fast) ease, transform var(--motion-medium) var(--ease-spring); }
+.brand:hover { transform: translateY(-1px); }
+.brand:hover .brand-logo { transform: scale(1.035); }
+.brand:active { transform: scale(0.97); }
+
+.icon-button,
+.user-chip button,
+.nav-logout,
+.nav-login,
+.authometry-button,
+.primary-action,
+.result-actions button,
+.result-actions a,
+.redirect-notice button,
+.storage-notice button {
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) var(--ease-spring);
+}
+.icon-button:hover { box-shadow: 0 7px 20px color-mix(in srgb, var(--accent) 17%, transparent); transform: translateY(-2px) rotate(-2deg); }
+.icon-button:active,
+.user-chip button:active,
+.nav-logout:active,
+.nav-login:active,
+.authometry-button:active:not(:disabled),
+.primary-action:active:not(:disabled),
+.result-actions button:active,
+.result-actions a:active,
+.storage-notice button:active { box-shadow: none; transform: translateY(0) scale(0.95); }
+.icon-button svg,
+.authometry-button img,
+.primary-action svg,
+.example-card > svg,
+.nav-card svg,
+.text-action svg,
+.info-icon { transition: transform var(--motion-medium) var(--ease-spring); }
+.theme-button:hover svg { transform: rotate(18deg) scale(1.08); }
+.menu-button:hover svg { transform: scaleX(1.12); }
+.authometry-button:hover:not(:disabled),
+.nav-logout:hover,
+.nav-login:hover,
+.result-actions button:hover,
+.result-actions a:hover,
+.storage-notice button:hover { box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 13%, transparent); transform: translateY(-2px); }
+.authometry-button:hover:not(:disabled) img { transform: rotate(-5deg) scale(1.08); }
+.primary-action:hover:not(:disabled) { box-shadow: 0 12px 30px color-mix(in srgb, var(--accent-strong) 35%, transparent); transform: translateY(-2px); }
+.primary-action:hover:not(:disabled) svg { transform: translateX(4px); }
+
+.nav-layer { animation: fade-in var(--motion-medium) ease both; }
+.nav-scrim { animation: fade-in var(--motion-medium) ease both; }
+.side-nav { animation: slide-in 320ms var(--ease-out); }
+.nav-card { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out); }
+.nav-card:hover { transform: translateX(5px); }
+.nav-card:active { transform: translateX(3px) scale(0.985); }
+.nav-card:hover svg { transform: rotate(-7deg) scale(1.12); }
+.nav-toggle-row { transition: color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out); }
+.nav-toggle-row:hover { color: var(--accent); transform: translateX(2px); }
+
+.hero-glow { animation: glow-breathe 5s ease-in-out infinite alternate; }
+.hero-kicker,
+.hero-section h1,
+.hero-copy,
+.bypass-form,
+.example-card { animation: rise-in 560ms var(--ease-out) both; }
+.hero-section h1 { animation-delay: 40ms; }
+.hero-copy { animation-delay: 90ms; }
+.bypass-form { animation-delay: 150ms; }
+.example-card { animation-delay: 220ms; }
+.hero-kicker span { animation: signal-pulse 2s ease-out infinite; }
+.bypass-form { transition: color 240ms ease, border-color var(--motion-medium) ease, background-color 240ms ease, box-shadow var(--motion-medium) ease, transform var(--motion-medium) var(--ease-out); }
+.bypass-form:focus-within { transform: translateY(-2px); }
+
+.text-action,
+.toggle-row,
+.example-card,
+.back-link { transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) var(--ease-spring); }
+.text-action:hover,
+.toggle-row:hover { transform: translateY(-1px); }
+.text-action:active,
+.toggle-row:active { transform: scale(0.96); }
+.text-action:hover svg { transform: rotate(-8deg) scale(1.1); }
+.toggle-track { transition: background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) var(--ease-spring); }
+.toggle-track::before { transition: background-color var(--motion-fast) ease, transform var(--motion-medium) var(--ease-spring); }
+.example-card:hover { box-shadow: 0 12px 30px color-mix(in srgb, var(--success) 12%, transparent); transform: translateY(-3px) rotate(-0.2deg); }
+.example-card:active { transform: translateY(0) scale(0.98); }
+.example-card:hover > svg:first-child { transform: rotate(-12deg) scale(1.15); }
+.example-card:hover > svg:last-child { transform: translateX(4px); }
+.back-link:hover { transform: translateX(-3px); }
+
+.result-card { animation: result-pop 420ms var(--ease-spring) both; }
+.feature-card,
+.policy-sections section { transition: color 240ms ease, border-color var(--motion-medium) ease, background-color 240ms ease, box-shadow var(--motion-medium) ease, transform var(--motion-medium) var(--ease-out); }
+.feature-card:hover,
+.policy-sections section:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 18px 42px color-mix(in srgb, var(--accent) 10%, rgba(0, 0, 0, 0.18)); transform: translateY(-5px); }
+.info-card:hover .info-icon { transform: rotate(-7deg) scale(1.08); }
+.supported-card li { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out); }
+.supported-card li:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft)); transform: translateY(-1px); }
+.storage-notice { animation: notice-in 480ms var(--ease-spring) both; }
+
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes glow-breathe { to { opacity: 1; transform: translate(-50%, -50%) scale(1.07); } }
+@keyframes signal-pulse { 60%, 100% { box-shadow: 0 0 0 11px transparent, 0 0 18px var(--success); } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(14px); } }
+@keyframes result-pop { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@keyframes notice-in { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
 
 @media (max-width: 860px) {
   .section-heading { grid-template-columns: 1fr; }
