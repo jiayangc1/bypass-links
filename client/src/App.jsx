@@ -352,21 +352,23 @@ function HomePage({ authLoading, onAuthExpired, user }) {
         <div className="hero-glow" aria-hidden="true" />
         <h1 id="hero-title">Bypass <RotatingSite /></h1>
         <form className="bypass-form" onSubmit={handleSubmit}>
-          <label htmlFor="bypass-url">Link to Bypass</label>
-          <input
-            ref={inputRef}
-            id="bypass-url"
-            aria-describedby={status.type === "error" ? "bypass-url-error" : undefined}
-            aria-invalid={status.type === "error"}
-            autoComplete="off"
-            inputMode="url"
-            name="url"
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="enter a link to get started"
-            required
-            type="url"
-            value={url}
-          />
+          <div className="bypass-input-shell">
+            <label htmlFor="bypass-url">Link to Bypass</label>
+            <input
+              ref={inputRef}
+              id="bypass-url"
+              aria-describedby={status.type === "error" ? "bypass-url-error" : undefined}
+              aria-invalid={status.type === "error"}
+              autoComplete="off"
+              inputMode="url"
+              name="url"
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="enter a link to get started"
+              required
+              type="url"
+              value={url}
+            />
+          </div>
           <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
             {status.type === "loading" ? "Working…" : "Bypass Link !"}
           </button>
