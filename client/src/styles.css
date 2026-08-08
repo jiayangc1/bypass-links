@@ -349,10 +349,9 @@ h3 { text-wrap: balance; }
 }
 .bypass-form { position: relative; display: grid; grid-template-columns: 1fr; width: min(776px, 100%); gap: 32px; }
 .bypass-input-shell { position: relative; padding: 20px; border-radius: 20px; background: color-mix(in srgb, var(--bg-elevated) 94%, black); box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22), 0 0 58px color-mix(in srgb, var(--accent) 24%, transparent); transition: box-shadow 180ms ease, transform 180ms ease; }
-.bypass-input-shell:focus-within { box-shadow: 0 0 0 2px var(--accent), 0 18px 42px rgba(0, 0, 0, 0.22), 0 0 72px color-mix(in srgb, var(--accent) 42%, transparent); }
 .bypass-form label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .bypass-form input { width: 100%; min-width: 0; height: 72px; padding: 0 24px; border: 2px solid var(--border); border-radius: 8px; outline: 0; color: var(--text); background: var(--bg-soft); font-size: clamp(18px, 2.2vw, 28px); }
-.bypass-form input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.bypass-form input:focus-visible { outline: 0; }
 .bypass-form input::placeholder { color: var(--subtle); }
 
 .primary-action { width: 100%; height: 96px; padding: 0 24px; border: 0; border-radius: 15px; color: white; background: linear-gradient(105deg, #3e65e7, #119aad); font-size: clamp(24px, 2.7vw, 34px); font-weight: 800; cursor: pointer; box-shadow: 0 14px 34px rgba(22, 121, 202, 0.25); }
