@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { newDb } from "pg-mem";
 import { DATABASE_MIGRATIONS } from "../src/migrations.js";
+import { PostgresOAuthAttemptStore } from "../src/oauthAttemptStore.js";
 import { PostgresRefreshSessionStore } from "../src/sessionStore.js";
 
 test("PostgreSQL migration and session store rotate and revoke token families", async () => {
@@ -101,4 +102,30 @@ test("PostgreSQL session store prepares its schema once before use", async () =>
 
   assert.equal(preparations, 1);
   assert.equal(inserts.length, 2);
+});
+
+test("PostgreSQL OAuth attempts are consumed atomically", async () => {
+  const database = newDb();
+  for (const migration of DATABASE_MIGRATIONS) {
+    database.public.none(migration.sql);
+  }
+  const adapter = database.adapters.createPg();
+  const pool = new adapter.Pool();
+  const store = new PostgresOAuthAttemptStore(pool);
+  const attempt = {
+    state: "single-use-state",
+    nonce: "nonce",
+    codeVerifier: "verifier",
+    returnTo: "/privacy"
+  };
+
+  try {
+    await store.createAttempt(attempt);
+    const consumed = await store.consumeAttempt(attempt.state);
+    assert.deepEqual(consumed, attempt);
+    assert.equal(await store.consumeAttempt(attempt.state), null);
+    assert.equal(await store.consumeAttempt("modified-state"), null);
+  } finally {
+    await pool.end();
+  }
 });

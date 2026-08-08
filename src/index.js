@@ -4,6 +4,7 @@ import { readConfig, validateConfig } from "./config.js";
 import { createDatabasePool } from "./database.js";
 import { createLogger } from "./logger.js";
 import { runDatabaseMigrations } from "./migrations.js";
+import { PostgresOAuthAttemptStore } from "./oauthAttemptStore.js";
 import { RateLimitQueue } from "./rateLimitQueue.js";
 import { createApp } from "./server.js";
 import { PostgresRefreshSessionStore } from "./sessionStore.js";
@@ -15,6 +16,9 @@ async function main() {
   validateConfig(config);
   const databasePool = createDatabasePool(config.databaseUrl);
   const sessionStore = new PostgresRefreshSessionStore(databasePool, {
+    prepare: () => runDatabaseMigrations(databasePool)
+  });
+  const oauthAttemptStore = new PostgresOAuthAttemptStore(databasePool, {
     prepare: () => runDatabaseMigrations(databasePool)
   });
 
@@ -61,6 +65,7 @@ async function main() {
     telegramWebhookSecret: config.telegramWebhookSecret,
     telegramClient,
     bypassClient,
+    oauthAttemptStore,
     sessionStore,
     discordErrorWebhookUrl: config.discordErrorWebhookUrl,
     logger: createLogger("server"),
@@ -68,6 +73,10 @@ async function main() {
       hackClubClientId: config.hackClubClientId,
       hackClubClientSecret: config.hackClubClientSecret,
       hackClubRedirectUri: config.hackClubRedirectUri,
+      authometryIssuer: config.authometryIssuer,
+      authometryClientId: config.authometryClientId,
+      authometryClientSecret: config.authometryClientSecret,
+      authometryRedirectUri: config.authometryRedirectUri,
       jwtAccessSecret: config.jwtAccessSecret,
       outboundMaxRetries: config.outboundMaxRetries,
       outboundTimeoutMs: config.outboundTimeoutMs,

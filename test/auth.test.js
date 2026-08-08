@@ -72,6 +72,30 @@ test("logout still clears browser cookies when session revocation fails", async 
   assert.deepEqual([...response.cleared].sort(), ["access_token", "refresh_token"]);
 });
 
+test("replaces an existing session after OAuth login", async () => {
+  const sessionStore = new InMemoryRefreshSessionStore();
+  const auth = createAuthService({
+    accessSecret: "test-access-secret",
+    isProduction: false,
+    sessionStore
+  });
+  const initialResponse = createCookieResponse();
+  await auth.startSession(initialResponse, user);
+  const initialRefresh = initialResponse.cookies.get("refresh_token").value;
+
+  const replacementUser = { id: "authometry:user", email: "new@example.com", name: "New User" };
+  const replacementResponse = createCookieResponse();
+  await auth.replaceSession(createCookieRequest(initialRefresh), replacementResponse, replacementUser);
+  const replacementRefresh = replacementResponse.cookies.get("refresh_token").value;
+  assert.notEqual(replacementRefresh, initialRefresh);
+
+  assert.equal(await auth.refreshSession(createCookieRequest(initialRefresh), createCookieResponse()), null);
+  assert.deepEqual(
+    await auth.refreshSession(createCookieRequest(replacementRefresh), createCookieResponse()),
+    replacementUser
+  );
+});
+
 function createCookieRequest(refreshToken) {
   return { cookies: { refresh_token: refreshToken } };
 }
