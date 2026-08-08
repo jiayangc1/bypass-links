@@ -106,7 +106,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme-preference", theme);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#181b22" : "#f5f7fb");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#101112" : "#f2f2f2");
   }, [theme]);
 
   useEffect(() => {
@@ -373,7 +373,6 @@ function HomePage({ authLoading, onAuthExpired, user }) {
     <main className="page-main" id="main-content">
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
-        <p className="hero-kicker"><span aria-hidden="true" />Link routing, minus the wait</p>
         <h1 id="hero-title">Skip the shortlink.<br /><span>Get where you’re going.</span></h1>
         <p className="hero-copy">Paste a supported link and we’ll resolve the destination for you.</p>
         <form className="bypass-form" onSubmit={handleSubmit}>
