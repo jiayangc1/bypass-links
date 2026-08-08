@@ -49,12 +49,13 @@ const supportedSites = [
 const rotatingSites = supportedSites.slice(0, 19);
 
 const faqItems = [
-  ["Which Ad-Link Sites Are Supported?", "The service supports Linkvertise and the other providers listed above. Support can change when providers update their flows."],
-  ["Are Bypasses Restricted?", "Authenticated users can submit links subject to fair-use and upstream rate limits."],
-  ["How Does It Work?", "Paste a supported public link. The server validates it, sends it to the bypass provider, and returns the final destination or text result."],
-  ["Do You Support Paste Results?", "Yes. When a provider returns text instead of a destination URL, it is displayed as a copyable result."],
-  ["What If I Get an Error?", "The result panel distinguishes unsupported links, rate limits, service outages, timeouts, and expired sessions so you know what to do next."],
-  ["Do You Use Advertising Cookies?", "No. The app uses essential first-party authentication cookies and local browser storage for theme and notice preferences."]
+  ["What Ad-Link sites are supported ?", "We support Linkvertise and every provider listed in the Supported Websites card. Support can change when providers update their flows."],
+  ["Are bypasses restricted ?", "Authenticated users can submit links subject to fair-use and upstream rate limits."],
+  ["How does it work ?", "Paste a supported public link. The server validates it, sends it to the bypass provider, and returns the final destination or text result."],
+  ["Do we support Pastes ?", "Yes. When a provider returns text instead of a destination URL, it is displayed as a copyable result."],
+  ["What if I get an error ?", "The result panel distinguishes unsupported links, rate limits, service outages, timeouts, and expired sessions so you know what to do next."],
+  ["Do we show ads ?", "Ads are optional. Use the Ads Enabled setting in the navigation menu to save your preference."],
+  ["How can I help ?", "Enable ads, share the service, or report a broken provider so it can be investigated."]
 ];
 
 function signInWithHackClub() {
@@ -349,9 +350,7 @@ function HomePage({ authLoading, onAuthExpired, user }) {
     <main className="page-main" id="main-content">
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
-        <p className="eyebrow">Fast, clear, and account-protected</p>
         <h1 id="hero-title">Bypass <RotatingSite /></h1>
-        <p className="hero-copy">Paste a public ad-link and get its destination without the unnecessary steps.</p>
         <form className="bypass-form" onSubmit={handleSubmit}>
           <label htmlFor="bypass-url">Link to Bypass</label>
           <input
@@ -363,47 +362,34 @@ function HomePage({ authLoading, onAuthExpired, user }) {
             inputMode="url"
             name="url"
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://linkvertise.com/…"
+            placeholder="enter a link to get started"
             required
             type="url"
             value={url}
           />
-          {user ? (
-            <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
-              {status.type === "loading" ? "Working…" : "Bypass Link"}
-            </button>
-          ) : (
-            <AuthometryButton
-              className="authometry-button-primary"
-              disabled={authLoading || status.type === "loading"}
-              type="submit"
-            />
-          )}
+          <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
+            {status.type === "loading" ? "Working…" : "Bypass Link !"}
+          </button>
           {status.type === "error" ? <p className="field-error" id="bypass-url-error" role="alert">{status.message}</p> : null}
         </form>
-        {!user && !authLoading ? (
-          <button className="alternate-login" onClick={signInWithHackClub} type="button">
-            <UserRound size={15} aria-hidden="true" />Continue with Hack Club instead
-          </button>
-        ) : null}
         {status.type === "loading" || status.type === "success" ? <Result key={`${status.type}-${status.result}`} autoRedirect={autoRedirect} status={status} /> : null}
         <div className="hero-controls">
-          <button className="text-action" onClick={handleClipboard} type="button"><Clipboard size={16} />Paste from Clipboard</button>
+          <button className="text-action" onClick={handleClipboard} type="button"><Clipboard size={15} />From Clipboard</button>
           <label className="toggle-row">
             <input checked={autoRedirect} name="auto-redirect" onChange={(event) => setAutoRedirect(event.target.checked)} type="checkbox" />
             <span className="toggle-track" aria-hidden="true" />
-            Auto-redirect
+            Auto-Redirect
           </label>
         </div>
         <button className="example-card" onClick={() => setUrl("https://linkvertise.com/48193/example")} type="button">
-          <Sparkles size={18} aria-hidden="true" /><span><strong>Try an Example</strong><small>Fill the form with a sample Linkvertise URL.</small></span>
+          <Sparkles size={16} aria-hidden="true" /><span><strong>Try an example link!</strong><small>We can bypass links most other bypasses can't. Try the Example!</small></span>
         </button>
       </section>
 
-      <SupportedSection />
-      <section className="feature-grid" aria-label="Service features">
-        <InfoCard icon={<HeartPulse size={40} />} title="Clear Status" text="Timeouts, rate limits, unsupported links, and expired sessions are reported separately." />
-        <InfoCard icon={<BadgeCheck size={40} />} title="Safer by Default" text="Links are validated before processing, and private or local network destinations are rejected." />
+      <section className="feature-grid" id="supported" aria-label="Service features">
+        <SupportedCard />
+        <InfoCard icon={<HeartPulse size={40} />} title="Instant Response" text="bypass.city is a fast and responsive service that will get you the link you need in no time! The bypass is instant and the link is ready to be used." />
+        <InfoCard icon={<BadgeCheck size={40} />} title="Quick and Easy" text="bypass.city is a simple and easy to use service that will bypass supported link shorteners in no time!" />
       </section>
       <Faq />
     </main>
@@ -491,18 +477,15 @@ function Result({ autoRedirect, status }) {
   );
 }
 
-function SupportedSection() {
+function SupportedCard() {
   return (
-    <section className="supported-section" id="supported" aria-labelledby="supported-heading">
-      <div className="supported-heading">
-        <span className="supported-icon" aria-hidden="true"><LinkIcon size={29} /></span>
-        <div>
-          <h2 id="supported-heading">Supported Websites</h2>
-          <p>With our custom backend we are able to support a big variety of websites and skip them in seconds.</p>
-        </div>
+    <article className="feature-card supported-card">
+      <div className="card-heading">
+        <LinkIcon size={36} />
+        <h2>Supported Websites <ExternalLink size={13} aria-hidden="true" /></h2>
       </div>
       <ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={17} /><span translate="no">{site}</span></li>)}</ul>
-    </section>
+    </article>
   );
 }
 
