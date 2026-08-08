@@ -175,7 +175,14 @@ function Header({ authLoading, displayName, menuButtonRef, menuOpen, onLogout, o
   return (
     <header className="top-header">
       <Link className="brand" to="/" aria-label="bypass.city home" translate="no">
-        <img className="brand-logo" src="/images/logo-long.svg" alt="bypass.city" fetchPriority="high" height="50" width="207" />
+        <img
+          className="brand-logo"
+          src={theme === "light" ? "/images/logo-long-light.svg" : "/images/logo-long.svg"}
+          alt="bypass.city"
+          fetchPriority="high"
+          height="50"
+          width="207"
+        />
       </Link>
       <div className="header-actions">
         {user ? (

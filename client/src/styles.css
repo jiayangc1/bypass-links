@@ -121,6 +121,7 @@ h3 { text-wrap: balance; }
 .brand { display: inline-flex; align-items: center; text-decoration: none; }
 .brand-logo { display: block; width: 112px; height: 38px; object-fit: contain; object-position: left center; }
 .brand:hover .brand-logo { filter: brightness(1.16); }
+:root[data-theme="light"] .brand:hover .brand-logo { filter: none; opacity: 0.78; }
 .header-actions { display: flex; align-items: center; gap: 10px; }
 
 .icon-button,
