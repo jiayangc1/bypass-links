@@ -118,10 +118,9 @@ h3 { text-wrap: balance; }
   backdrop-filter: blur(10px);
 }
 
-.brand { display: inline-flex; align-items: center; text-decoration: none; }
-.brand-logo { display: block; width: 94px; height: 36px; object-fit: contain; object-position: left center; }
-.brand:hover .brand-logo { filter: brightness(1.16); }
-:root[data-theme="light"] .brand:hover .brand-logo { filter: none; opacity: 0.78; }
+.brand { display: inline-flex; align-items: center; border-radius: 10px; text-decoration: none; }
+.brand-logo { display: block; width: 42px; height: 42px; border-radius: 10px; object-fit: cover; transition: filter 180ms ease, transform 180ms ease; }
+.brand:hover .brand-logo { filter: brightness(1.12); transform: scale(1.04); }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
 .icon-button,
@@ -447,7 +446,7 @@ h3 { text-wrap: balance; }
 @media (max-width: 680px) {
   :root { --header-content-height: 58px; }
   .top-header { padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); }
-  .brand-logo { width: 100px; }
+  .brand-logo { width: 38px; height: 38px; border-radius: 9px; }
   .user-chip, .signin-icon { display: none; }
   .hero-section { min-height: 590px; padding: 70px 15px 68px; }
   .hero-section h1 { font-size: clamp(38px, 12vw, 58px); }

@@ -185,11 +185,11 @@ function Header({ authLoading, displayName, menuButtonRef, menuOpen, onLogout, o
       <Link className="brand" to="/" aria-label="bypass.city home" translate="no">
         <img
           className="brand-logo"
-          src={theme === "light" ? "/images/logo-long-light.svg" : "/images/logo-long.svg"}
-          alt="bypass.city"
+          src="/images/bypass-logo-500.png"
+          alt=""
           fetchPriority="high"
-          height="50"
-          width="207"
+          height="500"
+          width="500"
         />
       </Link>
       <div className="header-actions">
