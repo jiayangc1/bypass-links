@@ -33,13 +33,20 @@ const policyDateFormatter = new Intl.DateTimeFormat(undefined, {
 const policyLastUpdated = new Date("2026-06-21T00:00:00Z");
 
 const supportedSites = [
-  "Linkvertise", "bstlar.com", "Cutty", "shrinkme.click", "Lootlinks", "AdFoc.us",
+  "Linkvertise", "bstlar.com", "Cutty", "shrinkme.click", "RedirectResolver", "Sub2Get",
+  "Sub2Unlock.me", "Lootlinks", "AdFoc.us",
   "Boost.ink", "BoostFusedGT", "leasurepartment.xyz", "LetsBoost", "mboost.me",
   "Rekonise", "shorte.st", "Sub2Unlock.com", "Sub2Unlock.net", "v.gd", "dragonslayer",
   "egirls.wtf", "tinyurl.com", "bit.ly", "is.gd", "rebrand.ly", "empebau.eu",
   "socialwolvez.com", "sub1s.com", "tinylink.onl", "google-url", "Justpaste.it Redirect",
-  "SubFinal", "Location Redirect", "Ad-Maven", "BaseResolver", "ParamsResolver"
+  "SubFinal", "Location Redirect", "Ad-Maven", "BaseResolver", "ParamsResolver", "Pastebin",
+  "PasteLua", "Pastelink", "Pastesite", "Rentry", "JustpasteIt", "EcoDevs", "ControlC",
+  "Paste Work Ink", "PrivateBin", "PasterSo", "Hastebin", "Bstlar", "PasteDrop",
+  "Leakutopia", "LeaksLinks", "Goldpaster", "Pasteso", "LinkDirect", "n0paste", "PasteFlash",
+  "Pasteva", "Leaked.tools", "Telegraph", "Vaultlinks"
 ];
+
+const rotatingSites = supportedSites.slice(0, 19);
 
 const faqItems = [
   ["Which Ad-Link Sites Are Supported?", "The service supports Linkvertise and the other providers listed above. Support can change when providers update their flows."],
@@ -217,6 +224,7 @@ function Header({ authLoading, displayName, menuButtonRef, menuOpen, onLogout, o
 
 function SideNav({ displayName, menuButtonRef, onClose, onLogout, user }) {
   const panelRef = useRef(null);
+  const [adsEnabled, setAdsEnabled] = useState(() => localStorage.getItem("ads-enabled") !== "no");
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -276,6 +284,23 @@ function SideNav({ displayName, menuButtonRef, onClose, onLogout, user }) {
             <button className="nav-login nav-login-secondary" onClick={signInWithHackClub} type="button"><UserRound size={18} />Continue with Hack Club</button>
           </div>
         )}
+        <div className="nav-preferences">
+          <label className="nav-toggle-row">
+            <span><strong>Ads Enabled</strong><small>Help the site with Ads!</small></span>
+            <input
+              checked={adsEnabled}
+              name="ads-enabled"
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                setAdsEnabled(enabled);
+                localStorage.setItem("ads-enabled", enabled ? "yes" : "no");
+              }}
+              type="checkbox"
+            />
+            <span className="toggle-track" aria-hidden="true" />
+          </label>
+          <small className="build-stamp">5af7e4b6b8 - <time dateTime="2026-07-31T18:28:00-07:00">7/31/2026, 6:28 PM</time></small>
+        </div>
       </aside>
     </div>
   );
@@ -325,7 +350,7 @@ function HomePage({ authLoading, onAuthExpired, user }) {
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
         <p className="eyebrow">Fast, clear, and account-protected</p>
-        <h1 id="hero-title">Bypass <span>Supported Links</span></h1>
+        <h1 id="hero-title">Bypass <RotatingSite /></h1>
         <p className="hero-copy">Paste a public ad-link and get its destination without the unnecessary steps.</p>
         <form className="bypass-form" onSubmit={handleSubmit}>
           <label htmlFor="bypass-url">Link to Bypass</label>
@@ -375,13 +400,41 @@ function HomePage({ authLoading, onAuthExpired, user }) {
         </button>
       </section>
 
-      <section className="feature-grid" id="supported" aria-label="Service features">
-        <SupportedCard />
+      <SupportedSection />
+      <section className="feature-grid" aria-label="Service features">
         <InfoCard icon={<HeartPulse size={40} />} title="Clear Status" text="Timeouts, rate limits, unsupported links, and expired sessions are reported separately." />
         <InfoCard icon={<BadgeCheck size={40} />} title="Safer by Default" text="Links are validated before processing, and private or local network destinations are rejected." />
       </section>
       <Faq />
     </main>
+  );
+}
+
+function RotatingSite() {
+  const [siteIndex, setSiteIndex] = useState(0);
+  const [exiting, setExiting] = useState(false);
+  const swapTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return undefined;
+    const interval = window.setInterval(() => {
+      setExiting(true);
+      swapTimeoutRef.current = window.setTimeout(() => {
+        setSiteIndex((current) => (current + 1) % rotatingSites.length);
+        setExiting(false);
+      }, 220);
+    }, 2_600);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(swapTimeoutRef.current);
+    };
+  }, []);
+
+  return (
+    <span className="rotating-site-wrap">
+      <span className={`rotating-site${exiting ? " is-exiting" : ""}`} key={rotatingSites[siteIndex]} translate="no">{rotatingSites[siteIndex]}</span>
+    </span>
   );
 }
 
@@ -438,8 +491,19 @@ function Result({ autoRedirect, status }) {
   );
 }
 
-function SupportedCard() {
-  return <article className="feature-card supported-card"><div className="card-heading"><LinkIcon size={40} /><h2>Supported Websites</h2></div><ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={19} /><span translate="no">{site}</span></li>)}</ul></article>;
+function SupportedSection() {
+  return (
+    <section className="supported-section" id="supported" aria-labelledby="supported-heading">
+      <div className="supported-heading">
+        <span className="supported-icon" aria-hidden="true"><LinkIcon size={29} /></span>
+        <div>
+          <h2 id="supported-heading">Supported Websites</h2>
+          <p>With our custom backend we are able to support a big variety of websites and skip them in seconds.</p>
+        </div>
+      </div>
+      <ul>{supportedSites.map((site) => <li key={site}><BadgeCheck size={17} /><span translate="no">{site}</span></li>)}</ul>
+    </section>
+  );
 }
 
 function InfoCard({ icon, title, text }) {
@@ -498,7 +562,7 @@ function StorageNotice() {
     localStorage.setItem("storage-notice-dismissed", "yes");
     setVisible(false);
   }
-  return <aside className="storage-notice" aria-label="Storage notice"><p>Essential first-party cookies support your sign-in, and local storage remembers your preferences. <Link to="/privacy">Privacy Details</Link></p><button onClick={dismiss} type="button">Dismiss</button></aside>;
+  return <aside className="storage-notice" aria-label="Cookie notice"><p>By using this website you agree to the use of 3rd-party cookies and our <Link to="/terms">Terms of Service</Link>. Find out more at our <Link to="/privacy">Privacy Policy</Link>.</p><button onClick={dismiss} type="button">Okay</button></aside>;
 }
 
 function initialTheme() {
