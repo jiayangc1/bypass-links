@@ -50,8 +50,12 @@ const faqItems = [
   ["Do You Use Advertising Cookies?", "No. The app uses essential first-party authentication cookies and local browser storage for theme and notice preferences."]
 ];
 
-function signIn() {
+function signInWithHackClub() {
   window.location.assign("/auth/hackclub");
+}
+
+function signInWithAuthometry() {
+  window.location.assign("/auth/authometry");
 }
 
 export default function App() {
@@ -167,7 +171,7 @@ function Header({ authLoading, displayName, menuButtonRef, menuOpen, onLogout, o
             <button aria-label="Log out" onClick={onLogout} type="button"><LogOut size={15} /></button>
           </div>
         ) : (
-          <button className="icon-button signin-icon" disabled={authLoading} onClick={signIn} aria-label="Sign in with Hack Club" type="button">
+          <button className="icon-button signin-icon" disabled={authLoading} onClick={signInWithAuthometry} aria-label="Sign in with Authometry" type="button">
             <UserRound size={19} />
           </button>
         )}
@@ -243,7 +247,14 @@ function SideNav({ displayName, menuButtonRef, onClose, onLogout, user }) {
           <Link className="nav-card" to="/privacy" onClick={onClose}><ShieldCheck size={18} /><span><strong>Privacy</strong><small>How data is handled</small></span></Link>
           <Link className="nav-card" to="/terms" onClick={onClose}><FileText size={18} /><span><strong>Terms</strong><small>Rules for using the service</small></span></Link>
         </nav>
-        {user ? <button className="nav-logout" onClick={onLogout} type="button"><LogOut size={18} />Log Out</button> : <button className="nav-login" onClick={signIn} type="button"><UserRound size={18} />Sign In with Hack Club</button>}
+        {user ? (
+          <button className="nav-logout" onClick={onLogout} type="button"><LogOut size={18} />Log Out</button>
+        ) : (
+          <div className="nav-login-options">
+            <button className="nav-login" onClick={signInWithAuthometry} type="button"><ShieldCheck size={18} />Continue with Authometry</button>
+            <button className="nav-login nav-login-secondary" onClick={signInWithHackClub} type="button"><UserRound size={18} />Continue with Hack Club</button>
+          </div>
+        )}
       </aside>
     </div>
   );
@@ -262,7 +273,7 @@ function HomePage({ authLoading, onAuthExpired, user }) {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!user) {
-      signIn();
+      signInWithAuthometry();
       return;
     }
     setStatus({ type: "loading", message: "Bypassing link…", result: "" });
@@ -312,10 +323,15 @@ function HomePage({ authLoading, onAuthExpired, user }) {
             value={url}
           />
           <button className="primary-action" disabled={authLoading || status.type === "loading"} type="submit">
-            {status.type === "loading" ? "Working…" : user ? "Bypass Link" : "Sign In with Hack Club"}
+            {status.type === "loading" ? "Working…" : user ? "Bypass Link" : "Continue with Authometry"}
           </button>
           {status.type === "error" ? <p className="field-error" id="bypass-url-error" role="alert">{status.message}</p> : null}
         </form>
+        {!user && !authLoading ? (
+          <button className="alternate-login" onClick={signInWithHackClub} type="button">
+            <UserRound size={15} aria-hidden="true" />Continue with Hack Club instead
+          </button>
+        ) : null}
         {status.type === "loading" || status.type === "success" ? <Result key={`${status.type}-${status.result}`} autoRedirect={autoRedirect} status={status} /> : null}
         <div className="hero-controls">
           <button className="text-action" onClick={handleClipboard} type="button"><Clipboard size={16} />Paste from Clipboard</button>
@@ -439,11 +455,11 @@ function PolicyPage({ type }) {
 }
 
 function PrivacyContent() {
-  return <div className="policy-sections"><section><h2>Data You Provide</h2><p>Hack Club supplies your account identifier, name, and email during sign-in. Submitted URLs are processed to provide the requested result.</p></section><section><h2>Storage</h2><p>Essential first-party cookies maintain your session. Local storage remembers theme and notice preferences. Refresh sessions expire after 30 days and can be revoked when you log out.</p></section><section><h2>Service Providers</h2><p>Hack Club provides authentication and bypass.vip processes submitted links. Telegram and Discord are used only for their configured bot and operational notification features.</p></section><section><h2>Operational Logs</h2><p>Logs contain request paths, timing, status, and sanitized URL metadata. OAuth codes, query strings, message text, credentials, and token values are not intentionally logged.</p></section></div>;
+  return <div className="policy-sections"><section><h2>Data You Provide</h2><p>Authometry or Hack Club supplies your account identifier, name, and email during sign-in. Submitted URLs are processed to provide the requested result.</p></section><section><h2>Storage</h2><p>Essential first-party cookies maintain your session. Local storage remembers theme and notice preferences. Refresh sessions expire after 30 days and can be revoked when you log out.</p></section><section><h2>Service Providers</h2><p>Authometry and Hack Club provide authentication, and bypass.vip processes submitted links. Telegram and Discord are used only for their configured bot and operational notification features.</p></section><section><h2>Operational Logs</h2><p>Logs contain request paths, timing, status, and sanitized URL metadata. OAuth codes, query strings, message text, credentials, and token values are not intentionally logged.</p></section></div>;
 }
 
 function TermsContent() {
-  return <div className="policy-sections"><section><h2>Acceptable Use</h2><p>Use the service only for links you are legally permitted to access. Do not use it to attack systems, evade access controls, distribute malware, or interfere with other users.</p></section><section><h2>Availability</h2><p>The service is provided as-is. Supported providers and results may change, and requests are subject to fair-use and upstream limits.</p></section><section><h2>Accounts</h2><p>You are responsible for activity performed through your Hack Club session. Log out on shared devices and report suspected account misuse through the project owner.</p></section><section><h2>Enforcement</h2><p>Access may be limited or revoked when necessary to protect the service, its providers, or other users.</p></section></div>;
+  return <div className="policy-sections"><section><h2>Acceptable Use</h2><p>Use the service only for links you are legally permitted to access. Do not use it to attack systems, evade access controls, distribute malware, or interfere with other users.</p></section><section><h2>Availability</h2><p>The service is provided as-is. Supported providers and results may change, and requests are subject to fair-use and upstream limits.</p></section><section><h2>Accounts</h2><p>You are responsible for activity performed through your authenticated session. Log out on shared devices and report suspected account misuse through the project owner.</p></section><section><h2>Enforcement</h2><p>Access may be limited or revoked when necessary to protect the service, its providers, or other users.</p></section></div>;
 }
 
 function StorageNotice() {

@@ -33,6 +33,21 @@ ALTER TABLE auth_refresh_sessions
 
 ALTER TABLE auth_refresh_sessions
   ADD COLUMN IF NOT EXISTS replacement_id UUID;`
+  },
+  {
+    name: "003_oauth_login_attempts.sql",
+    sql: `CREATE TABLE IF NOT EXISTS oauth_login_attempts (
+  state_hash CHAR(64) PRIMARY KEY,
+  provider TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  code_verifier TEXT NOT NULL,
+  return_to TEXT NOT NULL DEFAULT '/',
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS oauth_login_attempts_expires_at_idx
+  ON oauth_login_attempts (expires_at);`
   }
 ]);
 

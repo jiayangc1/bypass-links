@@ -4,6 +4,7 @@ import test from "node:test";
 import jwt from "jsonwebtoken";
 import { UpstreamRateLimitError, UpstreamTimeoutError, UpstreamUnavailableError } from "../src/errors.js";
 import { createApp } from "../src/server.js";
+import { InMemoryOAuthAttemptStore } from "../src/oauthAttemptStore.js";
 
 const accessSecret = "test-access-secret";
 const testUser = {
@@ -69,6 +70,85 @@ test("OAuth callback rejects missing or invalid state", async () => {
     });
 
     assert.equal(response.status, 400);
+  } finally {
+    await close();
+  }
+});
+
+test("starts Authometry login with a stored single-use attempt", async () => {
+  const attemptStore = new InMemoryOAuthAttemptStore();
+  const authometryClient = {
+    createAuthorizationAttempt: async (returnTo) => ({
+      authorizationUrl: new URL("https://authometry.example.com/oauth/authorize?state=state-1"),
+      state: "state-1",
+      nonce: "nonce-1",
+      codeVerifier: "verifier-1",
+      returnTo
+    })
+  };
+  const { baseUrl, close } = await startServer({ authometryClient, oauthAttemptStore: attemptStore });
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/authometry?returnTo=%2Fprivacy`, { redirect: "manual" });
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "https://authometry.example.com/oauth/authorize?state=state-1");
+    const attempt = await attemptStore.consumeAttempt("state-1");
+    assert.equal(attempt.returnTo, "/privacy");
+    assert.equal(attempt.codeVerifier, "verifier-1");
+  } finally {
+    await close();
+  }
+});
+
+test("Authometry callback creates a local session and rejects state replay", async () => {
+  const attemptStore = new InMemoryOAuthAttemptStore();
+  await attemptStore.createAttempt({
+    state: "state-1",
+    nonce: "nonce-1",
+    codeVerifier: "verifier-1",
+    returnTo: "/privacy"
+  });
+  const completed = [];
+  const authometryClient = {
+    completeAuthorization: async (query, attempt) => {
+      completed.push({ query, attempt });
+      return { id: "authometry:user-1", email: "user@example.com", name: "Authometry User" };
+    }
+  };
+  const { baseUrl, close } = await startServer({ authometryClient, oauthAttemptStore: attemptStore });
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/authometry/callback?code=code-1&state=state-1`, { redirect: "manual" });
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "/privacy");
+    assert.equal(completed.length, 1);
+    assert.match(response.headers.getSetCookie().join(";"), /access_token=/);
+    assert.match(response.headers.getSetCookie().join(";"), /refresh_token=/);
+
+    const replay = await fetch(`${baseUrl}/auth/authometry/callback?code=code-1&state=state-1`, { redirect: "manual" });
+    assert.equal(replay.status, 400);
+  } finally {
+    await close();
+  }
+});
+
+test("Authometry callback consumes state when the provider returns an error", async () => {
+  const attemptStore = new InMemoryOAuthAttemptStore();
+  await attemptStore.createAttempt({
+    state: "state-1",
+    nonce: "nonce-1",
+    codeVerifier: "verifier-1",
+    returnTo: "/"
+  });
+  const { baseUrl, close } = await startServer({
+    authometryClient: { completeAuthorization: async () => { throw new Error("must not run"); } },
+    oauthAttemptStore: attemptStore
+  });
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/authometry/callback?error=access_denied&state=state-1`);
+    assert.equal(response.status, 400);
+    assert.equal(await attemptStore.consumeAttempt("state-1"), null);
   } finally {
     await close();
   }
@@ -153,6 +233,8 @@ async function startServer(options = {}) {
       jwtAccessSecret: accessSecret,
       isProduction: false
     },
+    authometryClient: options.authometryClient,
+    oauthAttemptStore: options.oauthAttemptStore,
     serveClient: false
   });
 

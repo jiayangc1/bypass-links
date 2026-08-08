@@ -118,6 +118,12 @@ export function createAuthService({
     setRefreshCookie(response, credential.token, expiresAt);
   }
 
+  async function replaceSession(request, response, user) {
+    const credential = parseRefreshCredential(request.cookies?.[REFRESH_COOKIE]);
+    if (credential) await sessionStore.revokeSession(credential);
+    await startSession(response, user);
+  }
+
   async function refreshSession(request, response) {
     const current = parseRefreshCredential(request.cookies?.[REFRESH_COOKIE]);
     if (!current) {
@@ -173,6 +179,7 @@ export function createAuthService({
     logout,
     readAccessUser,
     refreshSession,
+    replaceSession,
     requireAuth,
     startSession,
     verifyOauthState

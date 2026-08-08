@@ -250,6 +250,8 @@ h3 { text-wrap: balance; }
 
 .nav-logout:hover { border-color: var(--danger); color: var(--danger); }
 .nav-login:hover { border-color: var(--accent); color: var(--accent); }
+.nav-login-options { display: grid; gap: 8px; }
+.nav-login-secondary { margin-top: 0; color: var(--muted); background: transparent; }
 
 .page-main { padding-top: var(--header-height); }
 
@@ -291,6 +293,8 @@ h3 { text-wrap: balance; }
 .primary-action:hover:not(:disabled) { filter: brightness(1.08); }
 .primary-action:disabled { cursor: wait; opacity: 0.65; }
 .field-error { grid-column: 1 / -1; margin: 0 8px 6px; color: var(--danger); font-size: 13px; font-weight: 700; line-height: 1.5; text-align: left; }
+.alternate-login { position: relative; display: inline-flex; align-items: center; min-height: 36px; gap: 7px; margin-top: 10px; border: 0; color: var(--muted); background: transparent; font-size: 13px; font-weight: 700; cursor: pointer; }
+.alternate-login:hover { color: var(--accent); }
 
 .hero-controls { position: relative; display: flex; align-items: center; justify-content: space-between; width: min(650px, 100%); gap: 24px; margin-top: 16px; }
 .text-action, .toggle-row { display: inline-flex; align-items: center; min-height: 36px; gap: 9px; border: 0; color: var(--muted); background: transparent; font-size: 14px; font-weight: 700; }

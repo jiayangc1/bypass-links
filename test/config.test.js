@@ -4,6 +4,9 @@ import { readConfig, validateConfig } from "../src/config.js";
 
 const validEnvironment = {
   APP_ORIGIN: "https://app.example.com",
+  AUTHOMETRY_CLIENT_ID: "authometry-client",
+  AUTHOMETRY_CLIENT_SECRET: "authometry-secret",
+  AUTHOMETRY_ISSUER: "https://authometry.example.com",
   BYPASS_API_KEY: "key",
   DATABASE_URL: "postgresql://localhost/bypass_links",
   HACK_CLUB_CLIENT_ID: "client",

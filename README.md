@@ -1,6 +1,6 @@
 # bypass-links
 
-Same-origin Express and React app for bypassing supported links, gated by Hack Club Auth. The existing Telegram webhook bot still extracts links from messages, sends them through the bypass.vip Premium API, and replies with the final result.
+Same-origin Express and React app for bypassing supported links, gated by Authometry or Hack Club OAuth. The existing Telegram webhook bot still extracts links from messages, sends them through the bypass.vip Premium API, and replies with the final result.
 
 See [BYPASS_VIP_API.md](BYPASS_VIP_API.md) for a simple guide to calling the bypass.vip API directly.
 
@@ -23,6 +23,9 @@ Fill in:
 - `HACK_CLUB_CLIENT_ID`
 - `HACK_CLUB_CLIENT_SECRET`
 - `HACK_CLUB_REDIRECT_URI`
+- `AUTHOMETRY_ISSUER`
+- `AUTHOMETRY_CLIENT_ID`
+- `AUTHOMETRY_CLIENT_SECRET`
 - `JWT_ACCESS_SECRET`
 - `OUTBOUND_TIMEOUT_MS` defaults to `8000`.
 - `OUTBOUND_MAX_RETRIES` defaults to `2` and applies only to safe/idempotent requests.
@@ -45,6 +48,15 @@ Production should use:
 ```txt
 https://bypass.ch3n.cc/oauth/callback
 ```
+
+The Authometry CLI provisions its values directly into the ignored `.env`. The registered Authometry callbacks are:
+
+```txt
+http://localhost:3000/auth/authometry/callback
+https://bypass.ch3n.cc/auth/authometry/callback
+```
+
+Authometry uses discovery-based OpenID Connect Authorization Code flow with S256 PKCE. Login attempts are short-lived and single-use, while successful sign-in creates the same revocable 30-day local session used by the rest of the app.
 
 ## Run
 

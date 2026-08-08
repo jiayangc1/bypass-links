@@ -5,10 +5,12 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { createAuthService, normalizeHackClubUser } from "./auth.js";
+import { createAuthometryOAuthClient, safeReturnPath } from "./authometryOAuth.js";
 import { notifyDiscord, processTelegramUpdate } from "./bot.js";
 import { createLogger, serializeError } from "./logger.js";
 import { createHackClubOAuthClient } from "./oauthClient.js";
-import { PublicHttpError } from "./errors.js";
+import { InMemoryOAuthAttemptStore } from "./oauthAttemptStore.js";
+import { PublicHttpError, UpstreamUnavailableError } from "./errors.js";
 import { parsePublicHttpUrl } from "./urlValidator.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +24,8 @@ export function createApp({
   fetchImpl = fetch,
   authConfig = {},
   oauthClient,
+  authometryClient,
+  oauthAttemptStore = new InMemoryOAuthAttemptStore(),
   sessionStore,
   clientDistPath = DEFAULT_CLIENT_DIST,
   serveClient = true,
@@ -39,6 +43,14 @@ export function createApp({
     redirectUri: authConfig.hackClubRedirectUri || "http://localhost:3000/oauth/callback",
     fetchImpl,
     maxRetries: authConfig.outboundMaxRetries,
+    timeoutMs: authConfig.outboundTimeoutMs
+  });
+  const authometryOAuth = authometryClient || createAuthometryOAuthClient({
+    issuer: authConfig.authometryIssuer || "https://authometry.ch3n.cc",
+    clientId: authConfig.authometryClientId || "test-authometry-client-id",
+    clientSecret: authConfig.authometryClientSecret || "test-authometry-client-secret",
+    redirectUri: authConfig.authometryRedirectUri || "http://localhost:3000/auth/authometry/callback",
+    fetchImpl,
     timeoutMs: authConfig.outboundTimeoutMs
   });
   const bypassLimiter = rateLimit({
@@ -80,6 +92,41 @@ export function createApp({
   app.get("/auth/hackclub", (request, response) => {
     const state = auth.createOauthState(response);
     response.redirect(hackClubOAuth.buildAuthorizationUrl(state));
+  });
+
+  app.get("/auth/authometry", async (request, response, next) => {
+    try {
+      const attempt = await authometryOAuth.createAuthorizationAttempt(safeReturnPath(request.query.returnTo));
+      await oauthAttemptStore.createAttempt(attempt);
+      response.redirect(attempt.authorizationUrl.toString());
+    } catch (error) {
+      next(new UpstreamUnavailableError("Authometry sign-in is temporarily unavailable.", error));
+    }
+  });
+
+  app.get("/auth/authometry/callback", async (request, response, next) => {
+    const state = typeof request.query.state === "string" ? request.query.state : "";
+    try {
+      const attempt = state ? await oauthAttemptStore.consumeAttempt(state) : null;
+      if (!attempt) {
+        response.status(400).send("Invalid or expired Authometry OAuth state.");
+        return;
+      }
+      if (typeof request.query.error === "string") {
+        response.status(400).send("Authometry sign-in was not completed.");
+        return;
+      }
+      if (typeof request.query.code !== "string") {
+        response.status(400).send("Invalid Authometry OAuth callback.");
+        return;
+      }
+
+      const user = await authometryOAuth.completeAuthorization(request.query, attempt);
+      await auth.replaceSession(request, response, user);
+      response.redirect(attempt.returnTo);
+    } catch (error) {
+      next(new UpstreamUnavailableError("Authometry sign-in could not be completed.", error));
+    }
   });
 
   app.get("/oauth/callback", async (request, response, next) => {
@@ -231,7 +278,7 @@ export function createApp({
       response.set("retry-after", String(publicError.retryAfter));
     }
 
-    if (request.path === "/oauth/callback") {
+    if (request.path === "/oauth/callback" || request.path === "/auth/authometry/callback") {
       response.status(publicError.status).send(publicError.message);
       return;
     }

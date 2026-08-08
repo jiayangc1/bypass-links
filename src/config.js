@@ -24,6 +24,10 @@ export function readConfig(env = process.env) {
     hackClubClientId: env.HACK_CLUB_CLIENT_ID,
     hackClubClientSecret: env.HACK_CLUB_CLIENT_SECRET,
     hackClubRedirectUri: env.HACK_CLUB_REDIRECT_URI || new URL("/oauth/callback", appOrigin).toString(),
+    authometryIssuer: env.AUTHOMETRY_ISSUER,
+    authometryClientId: env.AUTHOMETRY_CLIENT_ID,
+    authometryClientSecret: env.AUTHOMETRY_CLIENT_SECRET,
+    authometryRedirectUri: new URL("/auth/authometry/callback", appOrigin).toString(),
     jwtAccessSecret: env.JWT_ACCESS_SECRET
   };
 }
@@ -38,6 +42,9 @@ export function validateConfig(config) {
     ["HACK_CLUB_CLIENT_ID", config.hackClubClientId],
     ["HACK_CLUB_CLIENT_SECRET", config.hackClubClientSecret],
     ["HACK_CLUB_REDIRECT_URI", config.hackClubRedirectUri],
+    ["AUTHOMETRY_ISSUER", config.authometryIssuer],
+    ["AUTHOMETRY_CLIENT_ID", config.authometryClientId],
+    ["AUTHOMETRY_CLIENT_SECRET", config.authometryClientSecret],
     ["JWT_ACCESS_SECRET", config.jwtAccessSecret],
     ["DATABASE_URL", config.databaseUrl],
     ["APP_ORIGIN", config.appOrigin]
@@ -67,7 +74,9 @@ export function validateConfig(config) {
   for (const [name, value] of [
     ["APP_ORIGIN", config.appOrigin],
     ["WEBHOOK_BASE_URL", config.webhookBaseUrl],
-    ["HACK_CLUB_REDIRECT_URI", config.hackClubRedirectUri]
+    ["HACK_CLUB_REDIRECT_URI", config.hackClubRedirectUri],
+    ["AUTHOMETRY_ISSUER", config.authometryIssuer],
+    ["AUTHOMETRY_REDIRECT_URI", config.authometryRedirectUri]
   ]) {
     try {
       new URL(value);

@@ -27,6 +27,7 @@
     "ipaddr.js": "^2.4.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
+    "openid-client": "^6.8.4",
     "pg": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
